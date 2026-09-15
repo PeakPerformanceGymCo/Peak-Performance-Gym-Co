@@ -1,0 +1,9 @@
+{
+  "name":"Performance Gym Co.",
+  "short_name":"Performance Gym",
+  "start_url":"./index.html",
+  "display":"standalone",
+  "background_color":"#090909",
+  "theme_color":"#0b0b0b",
+  "icons":[]
+}

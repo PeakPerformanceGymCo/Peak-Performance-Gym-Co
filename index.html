@@ -483,4 +483,77 @@ sb.auth.getSession().then(r=>{if(r.data.session)loadUser(r.data.session.user)});
 })();
 </script>
 
+
+
+<!-- V16 client invite password setup: do not rely on invite URL markers. -->
+<style>
+#pgClientFirstLoginSetup{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:30000;padding:20px}
+#pgClientFirstLoginSetup .box{width:min(460px,100%);background:#151515;border:1px solid #333;border-radius:18px;padding:28px;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+#pgClientFirstLoginSetup h1{margin:0 0 8px;font-size:28px}
+#pgClientFirstLoginSetup p{color:#aaa;font-size:14px;line-height:1.55;margin:0 0 18px}
+</style>
+<div id="pgClientFirstLoginSetup">
+  <div class="box">
+    <h1>Finish setting up your account</h1>
+    <p>Create a password for your Performance Gym Co. account. After this, you can sign in anytime with your email and password.</p>
+    <input id="pgClientFirstPassword" class="field" type="password" autocomplete="new-password" placeholder="Create password (6+ characters)">
+    <input id="pgClientFirstPassword2" class="field" type="password" autocomplete="new-password" placeholder="Confirm password">
+    <button id="pgClientFirstSave" class="primary full" onclick="pgClientFinishFirstLogin()">CREATE PASSWORD & ENTER APP</button>
+  </div>
+</div>
+<script>
+(function(){
+  const setupId='pgClientFirstLoginSetup';
+  let checking=false;
+  function show(){
+    const m=document.getElementById(setupId);
+    if(!m)return;
+    document.getElementById('auth')?.classList.add('hidden');
+    document.getElementById('app')?.classList.add('hidden');
+    m.style.display='flex';
+  }
+  function hide(){
+    const m=document.getElementById(setupId);
+    if(m)m.style.display='none';
+  }
+  async function check(){
+    if(checking)return false;
+    checking=true;
+    try{
+      const r=await sb.auth.getSession();
+      const user=r.data?.session?.user;
+      if(!user)return false;
+      const pr=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
+      if(pr.data?.role!=='client')return false;
+      // The metadata flag is written when the invited client creates their password.
+      // This makes the flow reliable even after Supabase consumes the invite URL/hash.
+      if(user.user_metadata?.password_set===true){hide();return false;}
+      show();
+      return true;
+    }finally{checking=false;}
+  }
+  window.pgClientFinishFirstLogin=async function(){
+    const a=document.getElementById('pgClientFirstPassword').value;
+    const b=document.getElementById('pgClientFirstPassword2').value;
+    const btn=document.getElementById('pgClientFirstSave');
+    if(a.length<6)return toast('Password must be at least 6 characters.');
+    if(a!==b)return toast('Passwords do not match.');
+    btn.disabled=true;btn.textContent='SETTING PASSWORD...';
+    const r=await sb.auth.updateUser({password:a,data:{password_set:true}});
+    if(r.error){btn.disabled=false;btn.textContent='CREATE PASSWORD & ENTER APP';return toast(r.error.message||'Could not save password.');}
+    hide();
+    btn.disabled=false;btn.textContent='CREATE PASSWORD & ENTER APP';
+    if(r.data?.user && typeof window.loadUser==='function')await window.loadUser(r.data.user);
+  };
+  sb.auth.onAuthStateChange(function(event,session){
+    if(session && (event==='SIGNED_IN'||event==='INITIAL_SESSION'||event==='TOKEN_REFRESHED')){
+      setTimeout(check,50);
+    }
+  });
+  // Run immediately as well; this does not depend on the invite URL surviving Supabase auth processing.
+  setTimeout(check,0);
+  setTimeout(check,500);
+})();
+</script>
+
 </body></html>

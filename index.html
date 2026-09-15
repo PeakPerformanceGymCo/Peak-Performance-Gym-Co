@@ -350,4 +350,64 @@ sb.auth.getSession().then(r=>{if(r.data.session)loadUser(r.data.session.user)});
 })();
 </script>
 
+
+<style>
+#pgPasswordModalFix{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;align-items:center;justify-content:center;z-index:10001;padding:20px}
+#pgPasswordModalFix .pgFixBox{width:min(440px,100%);background:#151515;border:1px solid #333;border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+</style>
+<div id="pgPasswordModalFix">
+  <div class="pgFixBox">
+    <h2>Create Your Password</h2>
+    <p class="muted">Create a password for your Performance Gym Co. account. You'll use your email and this password to sign in.</p>
+    <input id="pgFixPassword" class="field" type="password" placeholder="New password (6+ characters)">
+    <input id="pgFixPassword2" class="field" type="password" placeholder="Confirm password">
+    <button class="primary full" id="pgFixSave" onclick="pgFixSavePassword()">SAVE PASSWORD & CONTINUE</button>
+  </div>
+</div>
+<script>
+(function(){
+  let recoverySession=false;
+  function isRecoveryUrl(){
+    const u=(location.href||'').toLowerCase();
+    return u.includes('type=recovery') || u.includes('type%3drecovery') || u.includes('type%3drecovery');
+  }
+  function showRecoveryPassword(){
+    const m=document.getElementById('pgPasswordModalFix');
+    if(!m)return;
+    document.getElementById('pgFixPassword').value='';
+    document.getElementById('pgFixPassword2').value='';
+    document.getElementById('auth')?.classList.add('hidden');
+    document.getElementById('app')?.classList.add('hidden');
+    m.style.display='flex';
+  }
+  window.pgFixSavePassword=async function(){
+    const a=document.getElementById('pgFixPassword').value;
+    const b=document.getElementById('pgFixPassword2').value;
+    const btn=document.getElementById('pgFixSave');
+    if(a.length<6)return toast('Password must be at least 6 characters.');
+    if(a!==b)return toast('Passwords do not match.');
+    btn.disabled=true;btn.textContent='SAVING...';
+    const r=await sb.auth.updateUser({password:a});
+    if(r.error){btn.disabled=false;btn.textContent='SAVE PASSWORD & CONTINUE';return toast(r.error.message||'Could not save password.');}
+    try{sessionStorage.removeItem('pg_invite_setup')}catch(e){}
+    try{history.replaceState({},document.title,location.pathname+location.search)}catch(e){}
+    document.getElementById('pgPasswordModalFix').style.display='none';
+    btn.disabled=false;btn.textContent='SAVE PASSWORD & CONTINUE';
+    if(r.data?.user) await window.loadUser(r.data.user);
+  };
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(event==='PASSWORD_RECOVERY' && session){
+      recoverySession=true;
+      setTimeout(showRecoveryPassword,50);
+    }
+  });
+  // Fallback for browsers where the recovery event fires before this script loads.
+  setTimeout(async()=>{
+    if(!isRecoveryUrl())return;
+    const r=await sb.auth.getSession();
+    if(r.data?.session)showRecoveryPassword();
+  },500);
+})();
+</script>
+
 </body></html>

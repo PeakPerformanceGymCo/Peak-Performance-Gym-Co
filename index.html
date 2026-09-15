@@ -225,7 +225,7 @@ async function loadMessages(){
     const mine=messages.filter(m=>(m.sender_id===currentUser.id&&m.recipient_id===id)||(m.recipient_id===currentUser.id&&m.sender_id===id));
     const last=mine[mine.length-1];
     return {id,last};
-  }).filter(c=>c.last||isCoach()).sort((a,b)=>new Date(b.last?.created_at||0)-new Date(a.last?.created_at||0));
+  }).filter(c=>c.last||isCoach()||!isCoach()).sort((a,b)=>new Date(b.last?.created_at||0)-new Date(a.last?.created_at||0));
   if(!convs.length){box.innerHTML='<div class="empty">No conversations yet.</div>';activeConversationId=null;msgBox.innerHTML='<div class="empty">No conversations yet.</div>';document.getElementById('dmComposer').classList.add('hidden');return;}
   box.innerHTML=convs.map(c=>{const person=people[c.id];const last=c.last;return '<button class="conversation-item '+(activeConversationId===c.id?'active':'')+'" onclick="openConversation(\''+c.id+'\')"><div class="conversation-name">'+esc(person.name)+'</div><div class="conversation-preview">'+esc(last?.body||'Start a conversation')+'</div><div class="conversation-time">'+(last?new Date(last.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'</div></button>'}).join('');
   if(activeConversationId && people[activeConversationId]) renderConversation(activeConversationId,messages,people[activeConversationId]);

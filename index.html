@@ -69,7 +69,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 </main></div>
 <div id="clientModal" class="modal"><div class="modalbox"><h2>New Client</h2><input id="clientName" class="field" placeholder="Client name"><input id="clientEmail" class="field" type="email" placeholder="Client email"><select id="clientProgram" class="field"><option>Velocity Development</option><option>General Strength</option><option>Golf Performance</option></select><button class="primary full" onclick="createClient()">SEND CLIENT INVITE</button><button class="outline full" onclick="closeModal('clientModal')">CANCEL</button><p class="small">The client receives a secure Supabase invitation email.</p></div></div>
 <div id="workoutModal" class="modal"><div class="modalbox"><h2>Workout Templates</h2><p class="muted">Templates will be added after the core client assignment workflow is finished.</p><button class="outline full" onclick="closeModal('workoutModal')">CLOSE</button></div></div>
-<div id="assignModal" class="modal"><div class="modalbox"><h2>Assign Workout</h2><p class="muted">Give a client a workout assignment. Detailed programming can live in your spreadsheet for now.</p><select id="assignClient" class="field"></select><input id="assignWorkoutName" class="field" placeholder="Workout name — e.g. Lower Body Power"><input id="assignDate" class="field" type="date"><textarea id="assignDescription" class="field" rows="2" placeholder="Short description (optional)"></textarea><textarea id="assignNotes" class="field" rows="3" placeholder="Coaching notes for this client (optional)"></textarea><input id="assignSheet" class="field" type="url" placeholder="Spreadsheet link (optional)"><button class="primary full" onclick="assignWorkout()">ASSIGN TO CLIENT</button><button class="outline full" onclick="closeModal('assignModal')">CANCEL</button></div></div>
+<div id="assignModal" class="modal"><div class="modalbox"><h2>Assign Workout</h2><p class="muted">Choose a client, give the workout a name, and optionally attach your spreadsheet.</p><label class="small">CLIENT</label><select id="assignClient" class="field"><option value="">Select a client...</option></select><input id="assignWorkoutName" class="field" placeholder="Workout name — e.g. Lower Body Power"><input id="assignDate" class="field" type="date"><textarea id="assignDescription" class="field" rows="2" placeholder="Short description (optional)"></textarea><textarea id="assignNotes" class="field" rows="3" placeholder="Coaching notes for this client (optional)"></textarea><input id="assignSheet" class="field" type="url" placeholder="Spreadsheet link (optional)"><button class="primary full" onclick="assignWorkout()">ASSIGN TO CLIENT</button><button class="outline full" onclick="closeModal('assignModal')">CANCEL</button></div></div>
 <div id="exerciseModal" class="modal"><div class="modalbox"><h2>Add Exercise Resource</h2><input id="exerciseName" class="field" placeholder="Exercise name"><select id="exerciseCategory" class="field"><option>Squat</option><option>Push</option><option>Pull</option><option>Hinge</option><option>Core</option><option>Mobility</option><option>Speed / Power</option><option>Other</option></select><input id="exerciseVideoUrl" class="field" type="url" placeholder="YouTube / Vimeo / Google Drive link"><textarea id="exerciseNotes" class="field" rows="3" placeholder="Coaching cues / notes"></textarea><button class="primary full" onclick="createExercise()">SAVE EXERCISE</button><button class="outline full" onclick="closeModal('exerciseModal')">CANCEL</button></div></div>
 <div id="metricModal" class="modal"><div class="modalbox"><h2>Add Performance Test</h2><input id="metricUser" class="field" placeholder="Client ID (leave blank for yourself)"><input id="metricName" class="field" placeholder="Test name"><input id="metricValue" class="field" placeholder="Value"><input id="metricUnit" class="field" placeholder="Unit (mph, lb, %, in)"><select id="metricCategory" class="field"><option>Strength</option><option>Speed</option><option>Power</option><option>Movement</option><option>Golf</option></select><button class="primary full" onclick="createMetric()">SAVE TEST</button><button class="outline full" onclick="closeModal('metricModal')">CANCEL</button></div></div>
 <div id="toast" class="toast"></div>
@@ -100,24 +100,56 @@ async function loadCoachTraining(){
 async function createWorkout(){toast('Use ASSIGN WORKOUT to send a workout to a client.');}
 async function populateAssignModal(){
  if(!isCoach())return;
- await loadClients();
- document.getElementById('assignClient').innerHTML=clients.map(c=>'<option value="'+c.id+'">'+esc(c.full_name||c.email)+'</option>').join('')||'<option value="">No clients</option>';
+ const select=document.getElementById('assignClient');
+ select.innerHTML='<option value="">Loading clients...</option>';
+ const {data,error}=await sb.rpc('get_coach_clients');
+ if(error){
+   select.innerHTML='<option value="">Could not load clients</option>';
+   return toast('Could not load clients: '+error.message);
+ }
+ clients=data||[];
+ if(!clients.length){
+   select.innerHTML='<option value="">No clients available</option>';
+   return toast('No clients are available yet. Invite a client first.');
+ }
+ select.innerHTML='<option value="">Select a client...</option>'+clients.map(c=>'<option value="'+c.id+'">'+esc(c.full_name||c.email||'Unnamed client')+'</option>').join('');
  document.getElementById('assignDate').value=new Date().toISOString().slice(0,10);
 }
 async function assignWorkout(){
  const client_id=document.getElementById('assignClient').value;
  const workout_name=document.getElementById('assignWorkoutName').value.trim();
- const workout_date=document.getElementById('assignDate').value;
+ const workout_date=document.getElementById('assignDate').value||null;
  const description=document.getElementById('assignDescription').value.trim();
  const coach_notes=document.getElementById('assignNotes').value.trim();
  const spreadsheet_url=document.getElementById('assignSheet').value.trim();
- if(!client_id||!workout_name)return toast('Select a client and enter a workout name.');
- const r=await sb.from('pg_workout_assignments').insert({coach_id:currentUser.id,client_id,workout_name,description:description||null,workout_date:workout_date||null,spreadsheet_url:spreadsheet_url||null,coach_notes:coach_notes||null,status:'assigned'});
- if(r.error)return toast(r.error.message);
- toast('Workout assigned.');
+ if(!client_id)return toast('Please select a client.');
+ if(!workout_name)return toast('Please enter a workout name.');
+ const button=document.querySelector('#assignModal .primary');
+ const original=button.textContent;
+ button.disabled=true;
+ button.textContent='ASSIGNING...';
+ const {data,error}=await sb.from('pg_workout_assignments').insert({
+   coach_id:currentUser.id,
+   client_id,
+   workout_name,
+   description:description||null,
+   workout_date,
+   spreadsheet_url:spreadsheet_url||null,
+   coach_notes:coach_notes||null,
+   status:'assigned'
+ }).select().single();
+ button.disabled=false;
+ button.textContent=original;
+ if(error){
+   console.error('Workout assignment error:',error);
+   return toast('Could not assign workout: '+error.message);
+ }
+ const client=clients.find(c=>c.id===client_id);
+ toast('Workout assigned to '+(client?.full_name||client?.email||'client')+'.');
  ['assignWorkoutName','assignDescription','assignNotes','assignSheet'].forEach(id=>document.getElementById(id).value='');
+ document.getElementById('assignClient').value='';
  closeModal('assignModal');
- loadCoachTraining();
+ await loadCoachTraining();
 }
 async function loadClientTraining(){
  if(isCoach())return;

@@ -240,7 +240,13 @@ sb.auth.getSession().then(r=>{if(r.data.session)loadUser(r.data.session.user)});
 <script>
 (function(){
   const originalLoadUser=window.loadUser;
-  function isInviteLink(){return /(?:^|[&#?\s])type=invite(?:&|\s|$)/i.test((location.hash||'')+' '+(location.search||''));}
+  // Capture the invite URL before Supabase consumes/clears its auth hash.
+  const invitePresentNow=/type=invite/i.test(window.location.href);
+  if(invitePresentNow){try{sessionStorage.setItem('pg_invite_setup','1')}catch(e){}}
+  function isInviteLink(){
+    try{return invitePresentNow || sessionStorage.getItem('pg_invite_setup')==='1';}
+    catch(e){return invitePresentNow;}
+  }
   function ensureSetupCard(){
     if(document.getElementById('v11SetupCard'))return;
     const auth=document.getElementById('auth');
@@ -255,6 +261,7 @@ sb.auth.getSession().then(r=>{if(r.data.session)loadUser(r.data.session.user)});
     const btn=document.querySelector('#v11SetupCard .primary');btn.disabled=true;btn.textContent='SETTING PASSWORD...';
     const r=await sb.auth.updateUser({password:p});btn.disabled=false;btn.textContent='CREATE PASSWORD & ENTER APP';
     if(r.error)return toast(r.error.message||'Could not set password.');
+    try{sessionStorage.removeItem('pg_invite_setup')}catch(e){}
     try{history.replaceState({},document.title,location.pathname+location.search)}catch(e){location.hash='';}
     document.getElementById('v11SetupCard').classList.add('hidden');await originalLoadUser(r.data.user||window.v11InviteUser);
   };

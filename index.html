@@ -410,4 +410,77 @@ sb.auth.getSession().then(r=>{if(r.data.session)loadUser(r.data.session.user)});
 })();
 </script>
 
+
+<style>
+#pgInviteSetupFinal{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:20000;padding:20px}
+#pgInviteSetupFinal .box{width:min(440px,100%);background:#151515;border:1px solid #333;border-radius:16px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.55)}
+#pgInviteSetupFinal h1{margin:0 0 8px;font-size:26px}.pgInviteNote{color:#aaa;font-size:14px;line-height:1.5;margin:0 0 18px}
+</style>
+<div id="pgInviteSetupFinal">
+  <div class="box">
+    <h1>Welcome to Performance Gym Co.</h1>
+    <p class="pgInviteNote">Your coach invited you. Create your password to finish setting up your account.</p>
+    <input id="pgInvitePassword1" class="field" type="password" placeholder="Create password (6+ characters)">
+    <input id="pgInvitePassword2" class="field" type="password" placeholder="Confirm password">
+    <button id="pgInviteSave" class="primary full" onclick="finishOriginalInviteSetup()">CREATE PASSWORD & ENTER APP</button>
+  </div>
+</div>
+<script>
+(function(){
+  const inviteKey='pg_original_invite_pending';
+  function urlHasInvite(){
+    const raw=(location.href+' '+location.hash+' '+location.search).toLowerCase();
+    return raw.includes('type=invite') || raw.includes('type%3dinvite');
+  }
+  function markInvite(){ try{sessionStorage.setItem(inviteKey,'1')}catch(e){} }
+  function hasPendingInvite(){ try{return urlHasInvite() || sessionStorage.getItem(inviteKey)==='1'}catch(e){return urlHasInvite()} }
+  if(urlHasInvite()) markInvite();
+
+  function showInviteSetup(){
+    const m=document.getElementById('pgInviteSetupFinal');
+    if(!m)return;
+    document.getElementById('auth')?.classList.add('hidden');
+    document.getElementById('app')?.classList.add('hidden');
+    m.style.display='flex';
+  }
+
+  async function checkInviteSession(){
+    if(!hasPendingInvite()) return false;
+    const r=await sb.auth.getSession();
+    const user=r.data?.session?.user;
+    if(!user) return false;
+    const pr=await sb.from('profiles').select('role').eq('id',user.id).maybeSingle();
+    if(pr.data?.role==='client'){
+      markInvite();
+      showInviteSetup();
+      return true;
+    }
+    return false;
+  }
+
+  window.finishOriginalInviteSetup=async function(){
+    const a=document.getElementById('pgInvitePassword1').value;
+    const b=document.getElementById('pgInvitePassword2').value;
+    const btn=document.getElementById('pgInviteSave');
+    if(a.length<6)return toast('Password must be at least 6 characters.');
+    if(a!==b)return toast('Passwords do not match.');
+    btn.disabled=true;btn.textContent='SAVING...';
+    const r=await sb.auth.updateUser({password:a});
+    if(r.error){btn.disabled=false;btn.textContent='CREATE PASSWORD & ENTER APP';return toast(r.error.message||'Could not save password.');}
+    try{sessionStorage.removeItem(inviteKey);sessionStorage.removeItem('pg_invite_setup')}catch(e){}
+    try{history.replaceState({},document.title,location.pathname+location.search)}catch(e){}
+    document.getElementById('pgInviteSetupFinal').style.display='none';
+    btn.disabled=false;btn.textContent='CREATE PASSWORD & ENTER APP';
+    if(r.data?.user && typeof window.loadUser==='function') await window.loadUser(r.data.user);
+  };
+
+  sb.auth.onAuthStateChange(async function(event,session){
+    if(session && (event==='SIGNED_IN' || event==='INITIAL_SESSION' || event==='TOKEN_REFRESHED')){
+      setTimeout(()=>checkInviteSession(),50);
+    }
+  });
+  setTimeout(()=>checkInviteSession(),700);
+})();
+</script>
+
 </body></html>

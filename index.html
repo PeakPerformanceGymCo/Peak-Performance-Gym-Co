@@ -58,7 +58,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 
 <section id="messages" class="view">
  <div class="section"><div><h2>Messages</h2><p class="muted">Private coach ↔ client communication.</p></div></div>
- <div class="grid"><div class="card"><div class="kpi">Conversation</div><div id="messageList" class="list"></div><div id="clientMessageComposer" class="hidden"><textarea id="messageBody" class="field" rows="3" placeholder="Write a message to your coach..."></textarea><button class="primary full" onclick="sendMessage()">SEND MESSAGE</button></div><div id="coachMessageComposer"><select id="messageClient" class="field"></select><textarea id="coachMessageBody" class="field" rows="3" placeholder="Write a message to a client..."></textarea><button class="primary full" onclick="sendMessage()">SEND MESSAGE</button></div></div><div class="card"><h3>Messaging notes</h3><p class="muted">Use this for workout questions, scheduling, feedback and quick coaching check-ins. We can add read receipts, notifications and separate conversations later.</p></div></div>
+ <div class="grid"><div class="card"><div class="kpi">Conversation</div><div id="messageList" class="list"></div><div id="clientMessageComposer" class="hidden"><textarea id="messageBody" class="field" rows="3" placeholder="Write a message to your coach..."></textarea><button class="primary full" onclick="sendMessage()">SEND MESSAGE</button></div><div id="coachMessageComposer"><select id="messageClient" class="field"></select><textarea id="coachMessageBody" class="field" rows="3" placeholder="Write a message to a client..."></textarea><button class="primary full" onclick="sendMessage()">SEND MESSAGE</button></div></div><div class="card"><h3>Messaging notes</h3><p class="muted">Use this for workout questions, scheduling, feedback and quick coaching check-ins. Messages stay in the app; email notifications can be added next.</p></div></div>
 </section>
 
 <section id="profile" class="view">
@@ -91,11 +91,15 @@ async function loadClients(){if(!isCoach())return;const {data,error}=await sb.rp
 async function createClient(){const name=document.getElementById('clientName').value.trim(),email=document.getElementById('clientEmail').value.trim(),program=document.getElementById('clientProgram').value;if(!name||!email)return toast('Enter a name and email.');const button=document.querySelector('#clientModal .primary');const original=button.textContent;button.disabled=true;button.textContent='SENDING...';const {data,error}=await sb.functions.invoke('invite-client',{body:{name,email,program}});button.disabled=false;button.textContent=original;if(error)return toast(error.message||'Could not send invite.');if(data?.error)return toast(data.error);toast('Invitation sent to '+email);document.getElementById('clientName').value='';document.getElementById('clientEmail').value='';closeModal('clientModal');loadClients()}
 async function loadCoachTraining(){
  if(!isCoach())return;
- const {data,error}=await sb.from('pg_workout_assignments').select('*').eq('coach_id',currentUser.id).order('workout_date',{ascending:false}).order('created_at',{ascending:false});
+ const [{data,error},{data:clientData,error:clientError}]=await Promise.all([
+   sb.from('pg_workout_assignments').select('*').eq('coach_id',currentUser.id).order('workout_date',{ascending:false}).order('created_at',{ascending:false}),
+   sb.rpc('get_coach_clients')
+ ]);
  const box=document.getElementById('assignmentList');
  if(error){box.innerHTML='<div class="empty">'+esc(error.message)+'</div>';return}
+ const clientMap={};(clientData||[]).forEach(c=>clientMap[c.id]=c);
  const rows=data||[];
- box.innerHTML=rows.map(x=>'<div class="item"><div class="row"><div><h3>'+esc(x.workout_name||'Workout')+'</h3><p>'+esc(x.workout_date||'No date')+' · '+esc(x.status||'assigned')+'</p></div><span class="pill">'+esc((x.status||'ASSIGNED').toUpperCase())+'</span></div><p><b>Client:</b> '+esc(x.client_id||'')+'</p>'+(x.description?'<p>'+esc(x.description)+'</p>':'')+(x.coach_notes?'<p class="muted">'+esc(x.coach_notes)+'</p>':'')+(x.spreadsheet_url?'<p><a class="gold" href="'+esc(x.spreadsheet_url)+'" target="_blank" rel="noopener">OPEN SPREADSHEET</a></p>':'')+'</div>').join('')||'<div class="empty">No workouts assigned yet.</div>';
+ box.innerHTML=rows.map(x=>{const c=clientMap[x.client_id];const clientName=c?.full_name||c?.email||'Client';return '<div class="item"><div class="row"><div><h3>'+esc(x.workout_name||'Workout')+'</h3><p>'+esc(x.workout_date||'No date')+' · '+esc(x.status||'assigned')+'</p></div><span class="pill">'+esc((x.status||'ASSIGNED').toUpperCase())+'</span></div><p><b>Client:</b> '+esc(clientName)+'</p>'+(x.description?'<p>'+esc(x.description)+'</p>':'')+(x.coach_notes?'<p class="muted">'+esc(x.coach_notes)+'</p>':'')+(x.spreadsheet_url?'<p><a class="gold" href="'+esc(x.spreadsheet_url)+'" target="_blank" rel="noopener">OPEN SPREADSHEET</a></p>':'')+'</div>'}).join('')||'<div class="empty">No workouts assigned yet.</div>';
 }
 async function createWorkout(){toast('Use ASSIGN WORKOUT to send a workout to a client.');}
 async function populateAssignModal(){
@@ -184,7 +188,25 @@ async function createExercise(){
 }
 async function loadMetrics(){const query=isCoach()?sb.from('pg_metrics').select('*').order('created_at',{ascending:false}):sb.from('pg_metrics').select('*').eq('user_id',currentUser.id).order('created_at',{ascending:false});const {data,error}=await query;const box=document.getElementById('metricList');if(error)return box.innerHTML='<div class="empty">'+esc(error.message)+'</div>';box.innerHTML=(data||[]).map(m=>'<div class="card"><div class="kpi">'+esc(m.category||'Performance')+'</div><h3>'+esc(m.name)+'</h3><div class="stat">'+esc(m.value)+' <span class="muted">'+esc(m.unit||'')+'</span></div><p class="small">'+new Date(m.created_at).toLocaleDateString()+'</p></div>').join('')||'<div class="empty">No tests recorded yet.</div>'}
 async function createMetric(){const name=document.getElementById('metricName').value.trim(),value=document.getElementById('metricValue').value.trim(),unit=document.getElementById('metricUnit').value.trim(),category=document.getElementById('metricCategory').value,user_id=document.getElementById('metricUser').value.trim()||currentUser.id;if(!name||!value)return toast('Add a test name and value.');const r=await sb.from('pg_metrics').insert({user_id,name,value,unit,category});if(r.error)return toast(r.error.message);toast('Performance test saved.');closeModal('metricModal');loadMetrics()}
-async function loadMessages(){let query=sb.from('pg_messages').select('*').or('sender_id.eq.'+currentUser.id+',recipient_id.eq.'+currentUser.id).order('created_at',{ascending:true}).limit(100);const {data,error}=await query;const box=document.getElementById('messageList');if(error)return box.innerHTML='<div class="empty">'+esc(error.message)+'</div>';const rows=data||[];box.innerHTML=rows.map(m=>'<div class="item"><b>'+esc(m.sender_id===currentUser.id?'You':(isCoach()?'Client':'Coach'))+'</b><p>'+esc(m.body)+'</p><span class="small">'+new Date(m.created_at).toLocaleString()+'</span></div>').join('')||'<div class="empty">No messages yet.</div>';if(!isCoach()){const latest=rows[rows.length-1];document.getElementById('clientMessagePreview').innerHTML=latest?'<b>'+esc(latest.body)+'</b><p class="small">'+new Date(latest.created_at).toLocaleString()+'</p>':'No messages yet.'}}
+async function loadMessages(){
+ let query=sb.from('pg_messages').select('*').or('sender_id.eq.'+currentUser.id+',recipient_id.eq.'+currentUser.id).order('created_at',{ascending:true}).limit(100);
+ const {data,error}=await query;
+ const box=document.getElementById('messageList');
+ if(error)return box.innerHTML='<div class="empty">'+esc(error.message)+'</div>';
+ const rows=data||[];
+ let nameMap={};
+ if(isCoach()){
+   const {data:clientData}=await sb.rpc('get_coach_clients');
+   (clientData||[]).forEach(c=>nameMap[c.id]=c.full_name||c.email||'Client');
+ }else if(profile){nameMap[profile.id]=profile.full_name||profile.email||'You';}
+ const coachIds=[...new Set(rows.filter(m=>m.sender_id!==currentUser.id&&m.recipient_id===currentUser.id).map(m=>m.sender_id))];
+ if(!isCoach()&&coachIds.length){
+   const {data:coachProfiles}=await sb.from('profiles').select('id,full_name,email').in('id',coachIds);
+   (coachProfiles||[]).forEach(c=>nameMap[c.id]=c.full_name||c.email||'Coach');
+ }
+ box.innerHTML=rows.map(m=>{const otherId=m.sender_id===currentUser.id?m.recipient_id:m.sender_id;const otherName=m.sender_id===currentUser.id?'You':(nameMap[otherId]||(isCoach()?'Client':'Coach'));return '<div class="item"><b>'+esc(otherName)+'</b><p>'+esc(m.body)+'</p><span class="small">'+new Date(m.created_at).toLocaleString()+'</span></div>'}).join('')||'<div class="empty">No messages yet.</div>';
+ if(!isCoach()){const latest=rows[rows.length-1];document.getElementById('clientMessagePreview').innerHTML=latest?'<b>'+esc(latest.body)+'</b><p class="small">'+new Date(latest.created_at).toLocaleString()+'</p>':'No messages yet.'}
+}
 function startClientMessage(id){show('messages');const sel=document.getElementById('messageClient');sel.value=id;document.getElementById('coachMessageBody').focus()}
 async function sendMessage(){
  let recipient,body;

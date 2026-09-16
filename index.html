@@ -740,7 +740,7 @@ async function renderCoachBookings(){const ids=[...new Set(calendarBookings.map(
 async function updateBookingStatus(id,status){const {error}=await sb.from('pg_bookings').update({status}).eq('id',id);if(error)return toast(error.message);toast('Booking updated.');loadCalendar()}
 function renderClientSessionTypes(){const sel=document.getElementById('bookingSessionType');const old=sel.value;sel.innerHTML='<option value="">Select session type...</option>'+sessionTypes.map(x=>'<option value="'+x.id+'">'+esc(x.name)+' · '+x.duration_minutes+' min'+(x.price!=null?' · $'+Number(x.price).toFixed(2):'')+'</option>').join('');if(sessionTypes.some(x=>x.id===old))sel.value=old;else if(sessionTypes.length)sel.value=sessionTypes[0].id}
 function renderClientAvailability(){const box=document.getElementById('clientAvailabilityList');if(!box)return;const groups={};availability.forEach(x=>{if(!x.availability_date)return;(groups[x.availability_date]??=[]).push(x)});const dates=Object.keys(groups).sort();if(!dates.length){box.innerHTML='<div class="empty">Your coach has not posted any upcoming availability yet.</div>';return}box.innerHTML=dates.map(date=>{const label=new Date(date+'T12:00:00').toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'});const windows=groups[date].map(w=>'<span class="availability-chip">'+String(w.start_time).slice(0,5)+' – '+String(w.end_time).slice(0,5)+'</span>').join(' ');return '<div class="item"><div class="section"><div><h3>'+esc(label)+'</h3><p>'+windows+'</p></div><button class="primary" onclick="selectBookingDate(\''+date+'\')">VIEW TIMES</button></div></div>'}).join('')}
-function selectBookingDate(date){const input=document.getElementById('bookingDate');input.value=date;renderClientSlots();document.getElementById('clientSlots')?.scrollIntoView({behavior:'smooth',block:'center'})}
+function selectBookingDate(date){const input=document.getElementById('bookingDate');input.value=date;document.getElementById('bookingSessionType')?.focus();renderClientSlots();document.getElementById('clientSlots')?.scrollIntoView({behavior:'smooth',block:'center'})}
 function timeToMinutes(t){const parts=String(t).slice(0,5).split(':').map(Number);return parts[0]*60+parts[1]}
 function dateTimeFor(date,time){return new Date(date+'T'+String(time).slice(0,5)+':00')}
 function overlaps(aStart,aEnd,bStart,bEnd){return new Date(aStart)<new Date(bEnd)&&new Date(aEnd)>new Date(bStart)}
@@ -748,31 +748,36 @@ async function renderClientSlots(){
   const box=document.getElementById('clientSlots');
   const date=document.getElementById('bookingDate').value;
   const typeId=document.getElementById('bookingSessionType').value;
-  if(!date||!typeId||!clientCoachId){box.innerHTML='<div class="empty">Choose a session type and date to see bookable times.</div>';return}
+  if(!typeId){box.innerHTML='<div class="empty">Choose a session type first to see available times.</div>';return}
+  if(!date){box.innerHTML='<div class="empty">Choose a date to see available times.</div>';return}
+  if(!clientCoachId){box.innerHTML='<div class="empty">Your coach has not been connected to your account yet.</div>';return}
   const type=sessionTypes.find(x=>x.id===typeId);
   if(!type){box.innerHTML='<div class="empty">Choose a valid session type.</div>';return}
-  const windows=availability.filter(x=>x.active&&x.availability_date===date);
-  if(!windows.length){box.innerHTML='<div class="empty">No coach availability on this date.</div>';return}
-  const dayStart=new Date(date+'T00:00:00');
-  const dayEnd=new Date(date+'T23:59:59');
-  const {data:bookings,error}=await sb.from('pg_bookings').select('start_time,end_time,status').eq('coach_id',clientCoachId).gte('start_time',dayStart.toISOString()).lte('start_time',dayEnd.toISOString()).in('status',['booked','completed','no_show']);
-  if(error){box.innerHTML='<div class="empty">Could not load booking times: '+esc(error.message)+'</div>';return}
+  const windows=availability.filter(x=>x.active&&String(x.availability_date).slice(0,10)===date);
+  if(!windows.length){box.innerHTML='<div class="empty">Your coach is not available on this date.</div>';return}
+
+  // Booked times are retrieved through a server-side RPC so one client cannot see another client's booking details.
+  const {data:booked,error}=await sb.rpc('get_coach_booked_times',{p_coach_id:clientCoachId,p_date:date});
+  if(error){box.innerHTML='<div class="empty">Could not load available times. Please refresh and try again.</div>';return}
+
   const slots=[];
   const now=new Date();
   for(const w of windows){
-    let m=timeToMinutes(w.start_time),end=timeToMinutes(w.end_time);
+    let m=timeToMinutes(w.start_time), end=timeToMinutes(w.end_time);
     while(m+Number(type.duration_minutes)<=end){
       const hh=String(Math.floor(m/60)).padStart(2,'0'),mm=String(m%60).padStart(2,'0');
       const st=dateTimeFor(date,hh+':'+mm),en=new Date(st.getTime()+Number(type.duration_minutes)*60000);
-      const blocked=(bookings||[]).some(b=>overlaps(st,en,b.start_time,b.end_time));
+      const blocked=(booked||[]).some(b=>overlaps(st,en,b.start_time,b.end_time));
       if(st>now&&!blocked)slots.push({st,en});
       m+=Number(type.duration_minutes);
     }
   }
-  slots.sort((a,b)=>a.st-b.st);
-  box.innerHTML=slots.length
-    ? '<p class="muted">Select a time for <b>'+esc(type.name)+'</b> ('+type.duration_minutes+' min):</p>'+slots.map(x=>'<button class="slot-btn" onclick="openBookingConfirm(\''+type.id+'\',\''+x.st.toISOString()+'\',\''+x.en.toISOString()+'\')">'+x.st.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'</button>').join('')
-    : '<div class="empty">No open times remain on this date for this session length.</div>';
+  // Remove duplicate starts when two availability windows overlap.
+  const unique=[];const seen=new Set();
+  slots.sort((a,b)=>a.st-b.st).forEach(x=>{const key=x.st.toISOString();if(!seen.has(key)){seen.add(key);unique.push(x)}});
+  box.innerHTML=unique.length
+    ? '<p class="muted">Available times for <b>'+esc(type.name)+'</b> · '+type.duration_minutes+' min:</p>'+unique.map(x=>'<button class="slot-btn" onclick="openBookingConfirm(\''+type.id+'\',\''+x.st.toISOString()+'\',\''+x.en.toISOString()+'\')">'+x.st.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+'</button>').join('')
+    : '<div class="empty">No open times remain on this date for a '+esc(String(type.duration_minutes))+'-minute '+esc(type.name)+'.</div>';
 }
 function openBookingConfirm(typeId,start,end){const type=sessionTypes.find(x=>x.id===typeId);document.getElementById('bookingConfirmType').value=typeId;document.getElementById('bookingConfirmStart').value=start;document.getElementById('bookingConfirmEnd').value=end;document.getElementById('bookingClientNotes').value='';document.getElementById('bookingConfirmText').innerHTML='<h3>'+esc(type?.name||'Session')+'</h3><p>'+esc(formatBookingTime(start,end))+'</p>'+(type?.description?'<p>'+esc(type.description)+'</p>':'');openModal('bookingConfirmModal')}
 async function confirmBooking(){
@@ -781,11 +786,16 @@ async function confirmBooking(){
   const end=document.getElementById('bookingConfirmEnd').value;
   const notes=document.getElementById('bookingClientNotes').value.trim()||null;
   if(!clientCoachId)return toast('Coach not found.');
-  const {data:conflict,error:checkError}=await sb.from('pg_bookings').select('id').eq('coach_id',clientCoachId).eq('status','booked').lt('start_time',end).gt('end_time',start).limit(1);
-  if(checkError)return toast('Could not check that time: '+checkError.message);
-  if(conflict?.length)return toast('That time was just booked. Please choose another time.');
-  const {error}=await sb.from('pg_bookings').insert({coach_id:clientCoachId,client_id:currentUser.id,session_type_id:typeId,start_time:start,end_time:end,client_notes:notes,status:'booked'});
+  const {data,error}=await sb.rpc('create_client_booking',{
+    p_coach_id:clientCoachId,
+    p_client_id:currentUser.id,
+    p_session_type_id:typeId,
+    p_start_time:start,
+    p_end_time:end,
+    p_client_notes:notes
+  });
   if(error)return toast('Booking could not be saved: '+error.message);
+  if(data?.ok===false)return toast(data.message||'That time is no longer available.');
   closeModal('bookingConfirmModal');
   toast('Booking confirmed!');
   await loadCalendar();

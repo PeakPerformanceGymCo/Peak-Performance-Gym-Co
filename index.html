@@ -131,7 +131,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <label class="item" style="display:flex;justify-content:space-between;align-items:center"><span>Workout reminders</span><input id="prefWorkoutReminders" type="checkbox" checked onchange="saveNotificationPreferences()"></label>
 </div></div>
 <div class="card"><h3>App Updates</h3>
-<p class="muted">Current version: <strong id="appVersionLabel">V43</strong></p>
+<p class="muted">Current version: <strong id="appVersionLabel">V44</strong></p>
 <p id="updateStatus" class="muted">Updates are checked automatically when the app opens.</p>
 <button class="outline full" onclick="checkForAppUpdate(true)">CHECK FOR UPDATES</button>
 </div></div></section>
@@ -276,7 +276,22 @@ async function loadDashboardSessionCounts(){if(!isCoach())return;const now=new D
 async function loadCoachDashboardNotes(){if(!isCoach())return;const el=document.getElementById('coachDashboardNotes');if(el)el.value=profile?.dashboard_notes||'';}
 async function saveCoachDashboardNotes(){if(!isCoach())return;const value=document.getElementById('coachDashboardNotes').value;const {error}=await sb.from('profiles').update({dashboard_notes:value}).eq('id',currentUser.id);if(error)return toast('Could not save notes: '+error.message);profile.dashboard_notes=value;const st=document.getElementById('coachNotesStatus');if(st){st.textContent='Saved';setTimeout(()=>st.textContent='',1800)}toast('Notes saved.');}
 async function loadClients(){if(!isCoach())return;const {data,error}=await sb.rpc('get_coach_clients');if(error)return document.getElementById('clientList').innerHTML='<div class="empty">'+esc(error.message)+'</div>';clients=data||[];document.getElementById('clientList').innerHTML=clients.map(c=>'<div class="item"><div class="row"><div><h3>'+esc(c.full_name||'Unnamed client')+'</h3><p>'+esc(c.email||'')+'</p></div><span class="pill">CLIENT</span><button class="outline" onclick="startClientMessage(\''+c.id+'\')">Message</button><button class="outline" onclick="openEditClient(\''+c.id+'\')">Edit</button><button class="outline" onclick="archiveClient(\''+c.id+'\')">REMOVE</button></div></div>').join('')||'<div class="empty">No active clients yet.</div>';document.getElementById('statClients').textContent=clients.length;}
-async function createClient(){const name=document.getElementById('clientName').value.trim(),email=document.getElementById('clientEmail').value.trim(),program=document.getElementById('clientProgram').value;if(!name||!email)return toast('Enter a name and email.');const button=document.querySelector('#clientModal .primary');const original=button.textContent;button.disabled=true;button.textContent='SENDING...';const {data,error}=await sb.functions.invoke('invite-client',{body:{name,email,program}});button.disabled=false;button.textContent=original;if(error)return toast(error.message||'Could not send invite.');if(data?.error)return toast(data.error);toast('Invitation sent to '+email);document.getElementById('clientName').value='';document.getElementById('clientEmail').value='';closeModal('clientModal');loadClients()}
+async function createClient(){
+ const name=document.getElementById('clientName').value.trim(),email=document.getElementById('clientEmail').value.trim(),program=document.getElementById('clientProgram').value;
+ if(!name||!email)return toast('Enter a name and email.');
+ const button=document.querySelector('#clientModal .primary'),original=button.textContent;
+ button.disabled=true;button.textContent='SENDING...';
+ try{
+   const request=sb.functions.invoke('invite-client',{body:{name,email,program}});
+   const timeout=new Promise((_,reject)=>setTimeout(()=>reject(new Error('The invite request took too long. Check the Edge Function logs before trying again.')),20000));
+   const {data,error}=await Promise.race([request,timeout]);
+   if(error)return toast(error.message||'Could not send invite.');
+   if(data?.error)return toast(data.error);
+   toast(data?.reactivated?'Client reactivated. Password reset email sent to '+email:'Invitation sent to '+email);
+   document.getElementById('clientName').value='';document.getElementById('clientEmail').value='';closeModal('clientModal');await loadClients();
+ }catch(e){toast(e?.message||'Could not send invite.');}
+ finally{button.disabled=false;button.textContent=original;}
+}
 async function loadCoachTraining(){
  if(!isCoach())return;
  const [{data,error},{data:clientData,error:clientError},{data:completionData,error:completionError}]=await Promise.all([
@@ -558,15 +573,7 @@ async function sendMessage(){
   const r=await sb.from('pg_messages').insert({sender_id:currentUser.id,recipient_id:recipient,body});
   if(r.error)return toast(r.error.message);
   document.getElementById('dmMessageBody').value='';
-  try{
-    const {data:notifyData,error:notifyError}=await sb.functions.invoke('notify-message',{body:{
-      senderId:currentUser.id,
-      recipientId:recipient,
-      message:body,
-      appUrl:APP_URL
-    }});
-    if(notifyError||notifyData?.error)console.warn('Message email notification failed:',notifyError||notifyData?.error);
-  }catch(e){console.warn('Message email notification failed:',e);}
+
   const senderName=profile?.full_name||profile?.email||currentUser.email||'Someone';
   await sendPush(recipient,'messages','New message from '+senderName,body,APP_URL);
   await loadMessages();

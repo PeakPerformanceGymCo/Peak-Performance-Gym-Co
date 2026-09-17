@@ -379,7 +379,24 @@ async function sendMessage(){
   const r=await sb.from('pg_messages').insert({sender_id:currentUser.id,recipient_id:recipient,body});
   if(r.error)return toast(r.error.message);
   document.getElementById('dmMessageBody').value='';
-  await sb.functions.invoke('notify-message',{body:{sender_id:currentUser.id,recipient_id:recipient,body}}).catch(()=>{});
+  try{
+    let recipientInfo=null;
+    if(isCoach()){
+      const c=clients.find(x=>x.id===recipient);
+      if(c)recipientInfo={email:c.email,full_name:c.full_name};
+    }else{
+      const {data:coachContact}=await sb.rpc('get_my_coach_contact');
+      recipientInfo=Array.isArray(coachContact)?coachContact[0]:coachContact;
+    }
+    if(recipientInfo?.email){
+      await sb.functions.invoke('notify-message',{body:{
+        recipientEmail:recipientInfo.email,
+        recipientName:recipientInfo.full_name||'there',
+        senderName:profile?.full_name||currentUser.email||'Peak Performance Gym Co. user',
+        message:body
+      }});
+    }
+  }catch(e){console.warn('Message email notification failed:',e);} 
   await loadMessages();
   toast('Message sent.');
 }
@@ -884,7 +901,22 @@ async function confirmBooking(){
   if(error)return toast('Booking could not be saved: '+error.message);
   if(data?.ok===false)return toast(data.message||'That time is no longer available.');
   closeModal('bookingConfirmModal');
-  await sb.functions.invoke('notify-booking',{body:{coach_id:clientCoachId,client_id:currentUser.id,session_type_id:typeId,start_time:start,end_time:end,client_notes:notes}}).catch(()=>{});
+  try{
+    const {data:coachContact}=await sb.rpc('get_my_coach_contact');
+    const coach=Array.isArray(coachContact)?coachContact[0]:coachContact;
+    const session=sessionTypes.find(x=>x.id===typeId);
+    if(coach?.email){
+      await sb.functions.invoke('notify-booking',{body:{
+        coachEmail:coach.email,
+        coachName:coach.full_name||'Coach',
+        clientName:profile?.full_name||currentUser.email||'Client',
+        sessionName:session?.name||'Session',
+        startTime:start,
+        endTime:end,
+        clientNotes:notes
+      }});
+    }
+  }catch(e){console.warn('Booking email notification failed:',e);} 
   toast('Booking confirmed!');
   await loadCalendar();
 }

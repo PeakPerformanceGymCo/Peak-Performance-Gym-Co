@@ -32,8 +32,8 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <section id="home" class="view active">
  <div class="card hero"><span class="badge" id="roleBadge">PERFORMANCE GYM CO.</span><h1 id="welcome">Welcome</h1><p id="homeIntro">Your coaching hub for strength & conditioning.</p></div>
  <div class="grid4" id="coachStats"><div class="card"><div class="kpi">Active clients</div><div id="statClients" class="stat">0</div></div><div class="card"><div class="kpi">Unread messages</div><div id="statMessages" class="stat">0</div></div><div class="card"><div class="kpi">Sessions today</div><div id="statSessionsToday" class="stat">0</div></div><div class="card"><div class="kpi">Sessions this week</div><div id="statSessionsWeek" class="stat">0</div></div></div>
- <div class="grid" id="coachHomeCards"><div class="card"><div class="section"><h2>Coach workspace</h2></div><p class="muted">Build workouts, assign them to clients, keep exercise resources in one place, and message clients directly.</p><div class="row"><button class="primary" onclick="show('training')">BUILD / ASSIGN WORKOUT</button><button class="outline" onclick="show('messages')">OPEN MESSAGES</button></div></div><div class="card"><div class="section"><h2>Coach Notes</h2><span id="coachNotesStatus" class="small muted"></span></div><textarea id="coachDashboardNotes" class="field dashboard-note" placeholder="Type notes, reminders, follow-ups, ideas, or anything you want to keep here..."></textarea><div class="row"><button class="primary" onclick="saveCoachDashboardNotes()">SAVE NOTES</button></div><p class="small muted">Saved to your coach profile so you can keep editing these notes.</p></div></div>
- <div class="grid hidden" id="clientHomeCards"><div class="card"><div class="section"><h2>Today's training</h2></div><div id="clientToday" class="empty">No workout assigned yet.</div></div><div class="card"><div class="section"><h2>Coach messages</h2></div><div id="clientMessagePreview" class="empty">No messages yet.</div><button class="outline" onclick="show('messages')" style="margin-top:10px">OPEN MESSAGES</button></div><div class="card"><div class="section"><h2>Quick links</h2></div><p class="muted">Quick access to your training and coaching calendar.</p><div class="row"><button class="primary" onclick="show('training')">MY TRAINING</button><button class="outline" onclick="show('calendar')">CALENDAR</button></div></div></div>
+ <div class="grid" id="coachHomeCards"><div class="card"><div class="section"><h2>Upcoming appointments</h2></div><div id="coachUpcomingAppointments" class="empty">No upcoming appointments.</div><button class="outline" onclick="show('calendar')" style="margin-top:10px">OPEN CALENDAR</button></div><div class="card"><div class="section"><h2>Recent messages</h2></div><div id="coachRecentMessages" class="empty">No messages yet.</div><button class="outline" onclick="show('messages')" style="margin-top:10px">OPEN MESSAGES</button></div><div class="card"><div class="section"><h2>Coach Notes</h2><span id="coachNotesStatus" class="small muted"></span></div><textarea id="coachDashboardNotes" class="field dashboard-note" placeholder="Type notes, reminders, follow-ups, ideas, or anything you want to keep here..."></textarea><div class="row"><button class="primary" onclick="saveCoachDashboardNotes()">SAVE NOTES</button></div><p class="small muted">Saved to your coach profile so you can keep editing these notes.</p></div></div>
+ <div class="grid hidden" id="clientHomeCards"><div class="card"><div class="section"><h2>Today's training</h2></div><div id="clientToday" class="empty">No workout assigned yet.</div></div><div class="card"><div class="section"><h2>Coach messages</h2></div><div id="clientMessagePreview" class="empty">No messages yet.</div><button class="outline" onclick="show('messages')" style="margin-top:10px">OPEN MESSAGES</button></div><div class="card"><div class="section"><h2>Next appointment</h2></div><div id="clientNextAppointment" class="empty">No upcoming appointments.</div><button class="outline" onclick="show('calendar')" style="margin-top:10px">OPEN CALENDAR</button></div></div>
 </section>
 
 <section id="clients" class="view">
@@ -131,7 +131,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <label class="item" style="display:flex;justify-content:space-between;align-items:center"><span>Workout reminders</span><input id="prefWorkoutReminders" type="checkbox" checked onchange="saveNotificationPreferences()"></label>
 </div></div>
 <div class="card"><h3>App Updates</h3>
-<p class="muted">Current version: <strong id="appVersionLabel">V44</strong></p>
+<p class="muted">Current version: <strong id="appVersionLabel">V45</strong></p>
 <p id="updateStatus" class="muted">Updates are checked automatically when the app opens.</p>
 <button class="outline full" onclick="checkForAppUpdate(true)">CHECK FOR UPDATES</button>
 </div></div></section>
@@ -149,7 +149,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <div id="bookingConfirmModal" class="modal"><div class="modalbox"><h2>Confirm Booking</h2><div id="bookingConfirmText" class="item"></div><textarea id="bookingClientNotes" class="field" rows="3" placeholder="Note for your coach (optional)"></textarea><input id="bookingConfirmType" type="hidden"><input id="bookingConfirmStart" type="hidden"><input id="bookingConfirmEnd" type="hidden"><button class="primary full" onclick="confirmBooking()">CONFIRM BOOKING</button><button class="outline full" onclick="closeModal('bookingConfirmModal')">CANCEL</button></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const APP_URL='https://peakperformancegymco.github.io/Peak-Performance-Gym-Co/';const APP_VERSION='43';const SUPABASE_URL='https://qrevmjdxgeprhuervbar.supabase.co';const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZXZtamR4Z2Vwcmh1ZXJ2YmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzU1NjMsImV4cCI6MjEwNTA1MTU2M30.pQzO4VDk0rCFP5TEcCtQzlbY5PeR_95O_0j17IEKGLo';let sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY),currentUser=null,profile=null,clients=[],workouts=[],exercises=[];
+const APP_URL='https://peakperformancegymco.github.io/Peak-Performance-Gym-Co/';const APP_VERSION='45';const SUPABASE_URL='https://qrevmjdxgeprhuervbar.supabase.co';const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZXZtamR4Z2Vwcmh1ZXJ2YmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzU1NjMsImV4cCI6MjEwNTA1MTU2M30.pQzO4VDk0rCFP5TEcCtQzlbY5PeR_95O_0j17IEKGLo';let sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY),currentUser=null,profile=null,clients=[],workouts=[],exercises=[];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(x){const t=document.getElementById('toast');t.textContent=x;t.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>t.style.display='none',3500)}
 function openModal(id){document.getElementById(id).classList.add('open');if(id==='assignModal')populateAssignModal()}
@@ -270,8 +270,35 @@ async function sendPush(recipientId,type,title,body,url=APP_URL){
     if(error||data?.error)console.warn('Push notification failed:',error||data?.error);
   }catch(e){console.warn('Push notification failed:',e)}
 }
-async function loadUser(user){currentUser=user;let r=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();if(!r.data&&user.email)r=await sb.from('profiles').select('*').eq('email',user.email).maybeSingle();if(!r.data)return toast('Profile lookup failed: '+(r.error?.message||'profile not found'));profile=r.data;document.getElementById('auth').classList.add('hidden');document.getElementById('app').classList.remove('hidden');document.getElementById('who').textContent=profile.full_name||user.email;document.getElementById('welcome').textContent=isCoach()?'Welcome, '+(profile.full_name||'Coach'):'Welcome, '+(profile.full_name||'Athlete');document.getElementById('profileInfo').textContent=(profile.full_name||'')+' · '+(profile.email||user.email)+' · '+profile.role;document.getElementById('clientProfileInfo').innerHTML='<div class="kpi">Name</div><h2>'+esc(profile.full_name||'')+'</h2><div class="kpi">Email</div><p class="muted">'+esc(profile.email||user.email)+'</p><div class="kpi">Role</div><p class="muted">Client</p>';navForRole();await loadDashboard();setTimeout(refreshPushStatus,300)}
-async function loadDashboard(){if(isCoach()){const m=await getUnreadMessageCount();document.getElementById('statMessages').textContent=m||0;updateUnreadDot(m||0);await Promise.all([loadClients(),loadCoachTraining(),loadExercises(),loadMessages(),loadCoachDashboardNotes(),loadDashboardSessionCounts()]);document.getElementById('statClients').textContent=(clients||[]).length}else{const m=await getUnreadMessageCount();updateUnreadDot(m||0);await Promise.all([loadClientTraining(),loadExercises(),loadMessages(),loadMetrics()]);}}
+async function loadUser(user){currentUser=user;let r=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();if(!r.data&&user.email)r=await sb.from('profiles').select('*').eq('email',user.email).maybeSingle();if(!r.data)return toast('Profile lookup failed: '+(r.error?.message||'profile not found'));profile=r.data;document.getElementById('auth').classList.add('hidden');document.getElementById('app').classList.remove('hidden');document.getElementById('who').textContent=profile.full_name||user.email;document.getElementById('welcome').textContent=isCoach()?'Welcome, '+(profile.full_name||'Coach'):'Welcome, '+(profile.full_name||'Athlete');document.getElementById('profileInfo').textContent=(profile.full_name||'')+' · '+(profile.email||user.email)+' · '+profile.role;document.getElementById('clientProfileInfo').innerHTML='<div class="kpi">Name</div><h2>'+esc(profile.full_name||'')+'</h2><div class="kpi">Email</div><p class="muted">'+esc(profile.email||user.email)+'</p><div class="kpi">Role</div><p class="muted">Client</p>';navForRole();await loadDashboard();openRouteFromHash();setTimeout(refreshPushStatus,300)}
+function appRouteUrl(view){return APP_URL+'#'+view;}
+function openRouteFromHash(){const view=(location.hash||'').replace('#','');if(['home','training','exercises','progress','messages','calendar','profile','settings','clients'].includes(view)){setTimeout(()=>show(view),50);}}
+async function loadDashboardAppointments(){
+  if(!currentUser)return;
+  const now=new Date().toISOString();
+  if(isCoach()){
+    const {data,error}=await sb.from('pg_bookings').select('id,client_id,start_time,end_time,status,pg_session_types(name)').eq('coach_id',currentUser.id).eq('status','booked').gte('start_time',now).order('start_time',{ascending:true}).limit(3);
+    const box=document.getElementById('coachUpcomingAppointments');if(!box)return;
+    if(error){box.innerHTML='<div class="empty">Could not load appointments.</div>';return;}
+    const rows=data||[];const ids=[...new Set(rows.map(x=>x.client_id).filter(Boolean))];let names={};
+    if(ids.length){const {data:ps}=await sb.from('profiles').select('id,full_name,email').in('id',ids);(ps||[]).forEach(x=>names[x.id]=x.full_name||x.email||'Client');}
+    box.innerHTML=rows.length?rows.map(x=>'<div class="item"><b>'+esc(x.pg_session_types?.name||'Session')+'</b><p>'+esc(names[x.client_id]||'Client')+'</p><p class="small muted">'+esc(formatBookingTime(x.start_time,x.end_time))+'</p></div>').join(''):'<div class="empty">No upcoming appointments.</div>';
+  }else{
+    const {data,error}=await sb.from('pg_bookings').select('id,start_time,end_time,status,pg_session_types(name)').eq('client_id',currentUser.id).eq('status','booked').gte('start_time',now).order('start_time',{ascending:true}).limit(1);
+    const box=document.getElementById('clientNextAppointment');if(!box)return;
+    if(error){box.innerHTML='<div class="empty">Could not load appointment.</div>';return;}
+    const x=(data||[])[0];box.innerHTML=x?'<div class="item"><b>'+esc(x.pg_session_types?.name||'Session')+'</b><p class="small muted">'+esc(formatBookingTime(x.start_time,x.end_time))+'</p></div>':'<div class="empty">No upcoming appointments.</div>';
+  }
+}
+async function loadCoachRecentMessages(){
+  if(!isCoach())return;const box=document.getElementById('coachRecentMessages');if(!box)return;
+  const {data,error}=await sb.from('pg_messages').select('id,sender_id,recipient_id,body,created_at').or('sender_id.eq.'+currentUser.id+',recipient_id.eq.'+currentUser.id).order('created_at',{ascending:false}).limit(5);
+  if(error){box.innerHTML='<div class="empty">Could not load messages.</div>';return;}const rows=data||[];
+  const ids=[...new Set(rows.map(m=>m.sender_id===currentUser.id?m.recipient_id:m.sender_id).filter(Boolean))];let names={};
+  if(ids.length){const {data:ps}=await sb.from('profiles').select('id,full_name,email').in('id',ids);(ps||[]).forEach(x=>names[x.id]=x.full_name||x.email||'Client');}
+  box.innerHTML=rows.length?rows.map(m=>{const other=m.sender_id===currentUser.id?m.recipient_id:m.sender_id;return '<button class="conversation-item" onclick="show(\'messages\');setTimeout(()=>openConversation(\''+other+'\'),0)"><div class="conversation-name">'+esc(names[other]||'Client')+'</div><div class="conversation-preview">'+esc(m.body)+'</div><div class="conversation-time">'+new Date(m.created_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+'</div></button>'}).join(''):'<div class="empty">No messages yet.</div>';
+}
+async function loadDashboard(){if(isCoach()){const m=await getUnreadMessageCount();document.getElementById('statMessages').textContent=m||0;updateUnreadDot(m||0);await Promise.all([loadClients(),loadCoachTraining(),loadExercises(),loadMessages(),loadCoachDashboardNotes(),loadDashboardSessionCounts(),loadDashboardAppointments(),loadCoachRecentMessages()]);document.getElementById('statClients').textContent=(clients||[]).length}else{const m=await getUnreadMessageCount();updateUnreadDot(m||0);await Promise.all([loadClientTraining(),loadExercises(),loadMessages(),loadMetrics(),loadDashboardAppointments()]);}}
 async function loadDashboardSessionCounts(){if(!isCoach())return;const now=new Date(),today=localDateInputValue(now);const base=new Date(today+'T12:00:00'),dow=base.getDay();const ws=new Date(base);ws.setDate(base.getDate()-dow);const we=new Date(ws);we.setDate(ws.getDate()+7);const start=localDateInputValue(ws)+'T00:00:00',end=localDateInputValue(we)+'T00:00:00';const {data,error}=await sb.from('pg_bookings').select('id,start_time,status').eq('coach_id',currentUser.id).eq('status','booked').gte('start_time',start).lt('start_time',end);if(error)return;const rows=data||[];const todayCount=rows.filter(b=>localDateInputValue(new Date(b.start_time))===today).length;document.getElementById('statSessionsToday').textContent=todayCount;document.getElementById('statSessionsWeek').textContent=rows.length;}
 async function loadCoachDashboardNotes(){if(!isCoach())return;const el=document.getElementById('coachDashboardNotes');if(el)el.value=profile?.dashboard_notes||'';}
 async function saveCoachDashboardNotes(){if(!isCoach())return;const value=document.getElementById('coachDashboardNotes').value;const {error}=await sb.from('profiles').update({dashboard_notes:value}).eq('id',currentUser.id);if(error)return toast('Could not save notes: '+error.message);profile.dashboard_notes=value;const st=document.getElementById('coachNotesStatus');if(st){st.textContent='Saved';setTimeout(()=>st.textContent='',1800)}toast('Notes saved.');}
@@ -575,7 +602,7 @@ async function sendMessage(){
   document.getElementById('dmMessageBody').value='';
 
   const senderName=profile?.full_name||profile?.email||currentUser.email||'Someone';
-  await sendPush(recipient,'messages','New message from '+senderName,body,APP_URL);
+  await sendPush(recipient,'messages','New message from '+senderName,body,appRouteUrl('messages'));
   await loadMessages();
   toast('Message sent.');
 }
@@ -706,7 +733,7 @@ sb.auth.getSession().then(r=>{if(r.data.session){loadUser(r.data.session.user);s
     if(r.error)return toast(r.error.message);
     try{history.replaceState({},document.title,location.pathname+location.search)}catch(e){}
     const m=document.getElementById('pgPasswordModal');if(m)m.style.display='none';
-    if(r.data.user)await loadUser(r.data.user);
+    window.location.replace(APP_URL);
   };
   sb.auth.getSession().then(()=>setTimeout(maybeShowRecovery,300));
 })();
@@ -755,7 +782,7 @@ sb.auth.getSession().then(r=>{if(r.data.session){loadUser(r.data.session.user);s
     try{history.replaceState({},document.title,location.pathname+location.search)}catch(e){}
     document.getElementById('pgPasswordModalFix').style.display='none';
     btn.disabled=false;btn.textContent='SAVE PASSWORD & CONTINUE';
-    if(r.data?.user) await window.loadUser(r.data.user);
+    window.location.replace(APP_URL);
   };
   sb.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY' && session){
@@ -1025,7 +1052,7 @@ async function updateBookingStatus(id,status){
  const {error}=await sb.from('pg_bookings').update({status}).eq('id',id);
  if(error)return toast(error.message);
  if(status==='cancelled'&&booking?.client_id){
-   await sendPush(booking.client_id,'cancellations','Session cancelled','Your '+(booking.pg_session_types?.name||'session')+' on '+formatBookingTime(booking.start_time,booking.end_time)+' was cancelled by your coach.',APP_URL);
+   await sendPush(booking.client_id,'cancellations','Session cancelled','Your '+(booking.pg_session_types?.name||'session')+' on '+formatBookingTime(booking.start_time,booking.end_time)+' was cancelled by your coach.',appRouteUrl('calendar'));
  }
  toast(status==='completed'?'Session marked completed.':status==='no_show'?'Session marked no show.':'Session updated.');
  await loadCalendar()
@@ -1107,7 +1134,7 @@ async function confirmBooking(){
     }
   }catch(e){console.warn('Booking email notification failed:',e);}
   const bookedType=sessionTypes.find(x=>x.id===typeId);
-  await sendPush(clientCoachId,'bookings','New booking',''+(profile?.full_name||'A client')+' booked '+(bookedType?.name||'a session')+' for '+formatBookingTime(start,end),APP_URL);
+  await sendPush(clientCoachId,'bookings','New booking',''+(profile?.full_name||'A client')+' booked '+(bookedType?.name||'a session')+' for '+formatBookingTime(start,end),appRouteUrl('calendar'));
   toast('Booking confirmed!');
   await loadCalendar();
 }
@@ -1120,7 +1147,7 @@ async function cancelClientBooking(id){
  const {data,error}=await sb.rpc('client_cancel_booking',{p_booking_id:id});
  if(error)return toast('Could not cancel booking: '+error.message);
  if(data?.ok===false)return toast(data.message||'Cancellation could not be completed.');
- await sendPush(booking.coach_id||clientCoachId,'cancellations','Session cancelled',(profile?.full_name||'A client')+' cancelled '+(type.name||'a session')+' scheduled for '+formatBookingTime(booking.start_time,booking.end_time),APP_URL);
+ await sendPush(booking.coach_id||clientCoachId,'cancellations','Session cancelled',(profile?.full_name||'A client')+' cancelled '+(type.name||'a session')+' scheduled for '+formatBookingTime(booking.start_time,booking.end_time),appRouteUrl('calendar'));
  toast(data.late_cancellation_fee_due?'Booking cancelled. Late-cancellation fee applies.':'Booking cancelled.');
  await loadCalendar()
 }

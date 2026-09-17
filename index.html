@@ -131,13 +131,13 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <label class="item" style="display:flex;justify-content:space-between;align-items:center"><span>Workout reminders</span><input id="prefWorkoutReminders" type="checkbox" checked onchange="saveNotificationPreferences()"></label>
 </div></div>
 <div class="card"><h3>App Updates</h3>
-<p class="muted">Current version: <strong id="appVersionLabel">V45</strong></p>
+<p class="muted">Current version: <strong id="appVersionLabel">V47</strong></p>
 <p id="updateStatus" class="muted">Updates are checked automatically when the app opens.</p>
 <button class="outline full" onclick="checkForAppUpdate(true)">CHECK FOR UPDATES</button>
 </div></div></section>
 </main></div>
 <div id="clientModal" class="modal"><div class="modalbox"><h2>New Client</h2><input id="clientName" class="field" placeholder="Client name"><input id="clientEmail" class="field" type="email" placeholder="Client email"><select id="clientProgram" class="field"><option>Velocity Development</option><option>General Strength</option><option>Golf Performance</option></select><button class="primary full" onclick="createClient()">SEND CLIENT INVITE</button><button class="outline full" onclick="closeModal('clientModal')">CANCEL</button><p class="small">The client receives a secure Supabase invitation email and is directed to the Peak Performance Gym Co. app.</p></div></div>
-<div id="editClientModal" class="modal"><div class="modalbox"><h2>Edit Client</h2><input id="editClientId" type="hidden"><input id="editClientName" class="field" placeholder="Client name"><button class="primary full" onclick="saveClientEdit()">SAVE CHANGES</button><button class="outline full" onclick="closeModal('editClientModal')">CANCEL</button></div></div>
+<div id="editClientModal" class="modal"><div class="modalbox"><h2>Edit Client</h2><input id="editClientId" type="hidden"><input id="editClientName" class="field" placeholder="Client name"><button class="primary full" onclick="saveClientEdit()">SAVE CHANGES</button><button class="outline full" id="resendClientLinkBtn" onclick="resendClientLink()">RESEND PASSWORD LINK</button><button class="outline full" onclick="closeModal('editClientModal')">CANCEL</button></div></div>
 <div id="assignModal" class="modal"><div class="modalbox"><h2>Assign Workout</h2><p class="muted">Choose a client, give the workout a name, and optionally attach your spreadsheet.</p><label class="small">CLIENT</label><select id="assignClient" class="field"><option value="">Select a client...</option></select><input id="assignWorkoutName" class="field" placeholder="Workout name — e.g. Lower Body Power"><div id="assignDates"></div><button type="button" class="outline full" onclick="addScheduleDateRow()">+ ADD ANOTHER DATE</button><textarea id="assignDescription" class="field" rows="2" placeholder="Short description (optional)"></textarea><textarea id="assignNotes" class="field" rows="3" placeholder="Coaching notes for this client (optional)"></textarea><input id="assignSheet" class="field" type="url" placeholder="Spreadsheet link (optional)"><button class="primary full" onclick="assignWorkout()">ASSIGN TO CLIENT</button><button class="outline full" onclick="closeModal('assignModal')">CANCEL</button></div></div>
 <div id="editWorkoutModal" class="modal"><div class="modalbox"><h2>Edit Workout</h2><input id="editWorkoutId" type="hidden"><label class="small">CLIENT</label><select id="editWorkoutClient" class="field"></select><input id="editWorkoutName" class="field" placeholder="Workout name"><div id="editWorkoutDates"></div><button type="button" class="outline full" onclick="addEditScheduleDateRow()">+ ADD ANOTHER DATE</button><textarea id="editWorkoutDescription" class="field" rows="2" placeholder="Description"></textarea><textarea id="editWorkoutNotes" class="field" rows="3" placeholder="Coach notes"></textarea><input id="editWorkoutSheet" class="field" type="url" placeholder="Spreadsheet link"><button class="primary full" onclick="saveWorkoutEdit()">SAVE CHANGES</button><button class="outline full" onclick="closeModal('editWorkoutModal')">CANCEL</button></div></div>
 <div id="exerciseModal" class="modal"><div class="modalbox"><h2>Add Exercise Resource</h2><input id="exerciseName" class="field" placeholder="Exercise name"><select id="exerciseCategory" class="field"><option>Squat</option><option>Push</option><option>Pull</option><option>Hinge</option><option>Core</option><option>Mobility</option><option>Speed / Power</option><option>Other</option></select><input id="exerciseVideoUrl" class="field" type="url" placeholder="YouTube / Vimeo / Google Drive link"><textarea id="exerciseNotes" class="field" rows="3" placeholder="Coaching cues / notes"></textarea><button class="primary full" onclick="createExercise()">SAVE EXERCISE</button><button class="outline full" onclick="closeModal('exerciseModal')">CANCEL</button></div></div>
@@ -282,7 +282,7 @@ async function loadDashboardAppointments(){
     if(error){box.innerHTML='<div class="empty">Could not load appointments.</div>';return;}
     const rows=data||[];const ids=[...new Set(rows.map(x=>x.client_id).filter(Boolean))];let names={};
     if(ids.length){const {data:ps}=await sb.from('profiles').select('id,full_name,email').in('id',ids);(ps||[]).forEach(x=>names[x.id]=x.full_name||x.email||'Client');}
-    box.innerHTML=rows.length?rows.map(x=>'<div class="item"><b>'+esc(x.pg_session_types?.name||'Session')+'</b><p>'+esc(names[x.client_id]||'Client')+'</p><p class="small muted">'+esc(formatBookingTime(x.start_time,x.end_time))+'</p></div>').join(''):'<div class="empty">No upcoming appointments.</div>';
+    box.innerHTML=rows.length?rows.map(x=>'<div class="item"><b>'+esc(names[x.client_id]||'Client')+'</b><p>'+esc(x.pg_session_types?.name||'Session')+'</p><p class="small muted">'+esc(formatBookingTime(x.start_time,x.end_time))+'</p></div>').join(''):'<div class="empty">No upcoming appointments.</div>';
   }else{
     const {data,error}=await sb.from('pg_bookings').select('id,start_time,end_time,status,pg_session_types(name)').eq('client_id',currentUser.id).eq('status','booked').gte('start_time',now).order('start_time',{ascending:true}).limit(1);
     const box=document.getElementById('clientNextAppointment');if(!box)return;
@@ -302,7 +302,7 @@ async function loadDashboard(){if(isCoach()){const m=await getUnreadMessageCount
 async function loadDashboardSessionCounts(){if(!isCoach())return;const now=new Date(),today=localDateInputValue(now);const base=new Date(today+'T12:00:00'),dow=base.getDay();const ws=new Date(base);ws.setDate(base.getDate()-dow);const we=new Date(ws);we.setDate(ws.getDate()+7);const start=localDateInputValue(ws)+'T00:00:00',end=localDateInputValue(we)+'T00:00:00';const {data,error}=await sb.from('pg_bookings').select('id,start_time,status').eq('coach_id',currentUser.id).eq('status','booked').gte('start_time',start).lt('start_time',end);if(error)return;const rows=data||[];const todayCount=rows.filter(b=>localDateInputValue(new Date(b.start_time))===today).length;document.getElementById('statSessionsToday').textContent=todayCount;document.getElementById('statSessionsWeek').textContent=rows.length;}
 async function loadCoachDashboardNotes(){if(!isCoach())return;const el=document.getElementById('coachDashboardNotes');if(el)el.value=profile?.dashboard_notes||'';}
 async function saveCoachDashboardNotes(){if(!isCoach())return;const value=document.getElementById('coachDashboardNotes').value;const {error}=await sb.from('profiles').update({dashboard_notes:value}).eq('id',currentUser.id);if(error)return toast('Could not save notes: '+error.message);profile.dashboard_notes=value;const st=document.getElementById('coachNotesStatus');if(st){st.textContent='Saved';setTimeout(()=>st.textContent='',1800)}toast('Notes saved.');}
-async function loadClients(){if(!isCoach())return;const {data,error}=await sb.rpc('get_coach_clients');if(error)return document.getElementById('clientList').innerHTML='<div class="empty">'+esc(error.message)+'</div>';clients=data||[];document.getElementById('clientList').innerHTML=clients.map(c=>'<div class="item"><div class="row"><div><h3>'+esc(c.full_name||'Unnamed client')+'</h3><p>'+esc(c.email||'')+'</p></div><span class="pill">CLIENT</span><button class="outline" onclick="startClientMessage(\''+c.id+'\')">Message</button><button class="outline" onclick="openEditClient(\''+c.id+'\')">Edit</button><button class="outline" onclick="archiveClient(\''+c.id+'\')">REMOVE</button></div></div>').join('')||'<div class="empty">No active clients yet.</div>';document.getElementById('statClients').textContent=clients.length;}
+async function loadClients(){if(!isCoach())return;const {data,error}=await sb.rpc('get_coach_clients');if(error)return document.getElementById('clientList').innerHTML='<div class="empty">'+esc(error.message)+'</div>';clients=data||[];document.getElementById('clientList').innerHTML=clients.map(c=>'<div class="item"><div class="row"><div><h3>'+esc(c.full_name||'Unnamed client')+'</h3><p>'+esc(c.email||'')+'</p></div><span class="pill">CLIENT</span><button class="outline" onclick="startClientMessage(\''+c.id+'\')">Message</button><button class="outline" onclick="openEditClient(\''+c.id+'\')">Edit</button><button class="outline" onclick="archiveClient(\''+c.id+'\')">ARCHIVE</button><button class="outline" onclick="removeClientPermanently(\''+c.id+'\')">REMOVE</button></div></div>').join('')||'<div class="empty">No active clients yet.</div>';document.getElementById('statClients').textContent=clients.length;}
 async function createClient(){
  const name=document.getElementById('clientName').value.trim(),email=document.getElementById('clientEmail').value.trim(),program=document.getElementById('clientProgram').value;
  if(!name||!email)return toast('Enter a name and email.');
@@ -610,6 +610,28 @@ async function deleteMessage(id){if(!confirm('Delete this message?'))return;cons
 async function openEditClient(id){const c=clients.find(x=>x.id===id);if(!c)return;document.getElementById('editClientId').value=id;document.getElementById('editClientName').value=c.full_name||'';openModal('editClientModal');}
 async function saveClientEdit(){const id=document.getElementById('editClientId').value,name=document.getElementById('editClientName').value.trim();if(!name)return toast('Enter a client name.');const c=clients.find(x=>x.id===id);const email=c?.email||'';const {error}=await sb.rpc('update_client_profile',{client_id:id,new_full_name:name,new_email:email});if(error)return toast(error.message);toast('Client updated.');closeModal('editClientModal');loadClients();loadCoachTraining();}
 async function archiveClient(id){const c=clients.find(x=>x.id===id);if(!confirm('Archive '+(c?.full_name||'this client')+'? Their history will remain available.'))return;const {error}=await sb.rpc('archive_client',{client_id:id});if(error)return toast(error.message);toast('Client archived.');loadClients();}
+async function resendClientLink(){
+  const id=document.getElementById('editClientId').value,c=clients.find(x=>x.id===id);
+  if(!c?.email)return toast('Client email not found.');
+  const btn=document.getElementById('resendClientLinkBtn'),original=btn.textContent;
+  btn.disabled=true;btn.textContent='SENDING...';
+  try{
+    const {data,error}=await sb.functions.invoke('invite-client',{body:{name:c.full_name||'Client',email:c.email,program:''}});
+    if(error)throw error;if(data?.error)throw new Error(data.error);
+    toast('Password link sent to '+c.email+'.');
+  }catch(e){toast('Could not resend link: '+(e?.message||e));}
+  finally{btn.disabled=false;btn.textContent=original;}
+}
+async function removeClientPermanently(id){
+  const c=clients.find(x=>x.id===id),name=c?.full_name||'this client';
+  if(!confirm('Permanently remove '+name+'? This deletes their account access and is different from archiving.'))return;
+  if(!confirm('Final confirmation: this cannot be undone. Permanently remove '+name+'?'))return;
+  try{
+    const {data,error}=await sb.functions.invoke('remove-client',{body:{clientId:id}});
+    if(error)throw error;if(data?.error)throw new Error(data.error);
+    toast('Client permanently removed.');await loadClients();
+  }catch(e){toast('Could not remove client: '+(e?.message||e));}
+}
 async function openEditWorkout(id){const {data,error}=await sb.from('pg_workout_assignments').select('*').eq('id',id).eq('coach_id',currentUser.id).single();if(error)return toast(error.message);await populateAssignModal();document.getElementById('editWorkoutId').value=id;document.getElementById('editWorkoutClient').innerHTML=clients.map(c=>'<option value="'+c.id+'">'+esc(c.full_name||c.email||'Client')+'</option>').join('');document.getElementById('editWorkoutClient').value=data.client_id;document.getElementById('editWorkoutName').value=data.workout_name||'';document.getElementById('editWorkoutDates').innerHTML='';const dates=Array.isArray(data.scheduled_dates)&&data.scheduled_dates.length?data.scheduled_dates:[data.workout_date];(dates||[]).filter(Boolean).forEach(d=>addEditScheduleDateRow(d));if(!dates?.length)addEditScheduleDateRow();document.getElementById('editWorkoutDescription').value=data.description||'';document.getElementById('editWorkoutNotes').value=data.coach_notes||'';document.getElementById('editWorkoutSheet').value=data.spreadsheet_url||'';openModal('editWorkoutModal');}
 function addEditScheduleDateRow(value=''){const wrap=document.getElementById('editWorkoutDates');const row=document.createElement('div');row.className='schedule-date-row';row.innerHTML='<div class="row"><input class="field edit-schedule-date" type="date" value="'+esc(value)+'" style="flex:1"><button type="button" class="outline" onclick="this.closest(\".schedule-date-row\").remove()">REMOVE</button></div>';wrap.appendChild(row)}
 async function saveWorkoutEdit(){const id=document.getElementById('editWorkoutId').value;const scheduled_dates=getScheduleDates('editWorkoutDates');const payload={client_id:document.getElementById('editWorkoutClient').value,workout_name:document.getElementById('editWorkoutName').value.trim(),workout_date:scheduled_dates[0]||null,scheduled_dates,description:document.getElementById('editWorkoutDescription').value.trim()||null,coach_notes:document.getElementById('editWorkoutNotes').value.trim()||null,spreadsheet_url:document.getElementById('editWorkoutSheet').value.trim()||null};if(!payload.client_id||!payload.workout_name)return toast('Select a client and enter a workout name.');if(!scheduled_dates.length)return toast('Add at least one workout date.');const {error}=await sb.from('pg_workout_assignments').update(payload).eq('id',id).eq('coach_id',currentUser.id);if(error)return toast(error.message);toast('Workout updated.');closeModal('editWorkoutModal');loadCoachTraining();}
@@ -963,7 +985,55 @@ let sessionTypes=[], availability=[], calendarBookings=[], clientCoachId=null;
 function dayName(n){return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][Number(n)]||''}
 function localDateInputValue(d=new Date()){const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)}
 function escAttr(s){return esc(s).replace(/`/g,'&#96;')}
+
+async function archivePastBookings(){
+  if(!currentUser)return;
+  const today=localDateInputValue();
+  const cutoff=new Date(today+'T00:00:00').toISOString();
+  let q=sb.from('pg_bookings').update({status:'completed'}).eq('status','booked').lt('end_time',cutoff);
+  q=isCoach()?q.eq('coach_id',currentUser.id):q.eq('client_id',currentUser.id);
+  const {error}=await q;
+  if(error)console.warn('Could not archive past bookings:',error.message);
+}
+function bookingFitsAvailabilityWindow(booking,windows){
+  const start=new Date(booking.start_time),end=new Date(booking.end_time);
+  const date=localDateInputValue(start);
+  const startMin=start.getHours()*60+start.getMinutes();
+  const endMin=end.getHours()*60+end.getMinutes();
+  return windows.some(w=>{
+    if(!w.active||String(w.availability_date||'').slice(0,10)!==date)return false;
+    return startMin>=timeToMinutes(w.start_time)&&endMin<=timeToMinutes(w.end_time);
+  });
+}
+async function cancelBookingsNoLongerAvailable(date){
+  if(!isCoach()||!date)return 0;
+  const [{data:windows,error:windowError},{data:bookings,error:bookingError}]=await Promise.all([
+    sb.from('pg_availability').select('*').eq('coach_id',currentUser.id).eq('active',true).eq('availability_date',date),
+    sb.from('pg_bookings').select('*,pg_session_types(name)').eq('coach_id',currentUser.id).eq('status','booked')
+  ]);
+  if(windowError||bookingError){
+    console.warn('Could not check affected bookings:',windowError||bookingError);
+    return 0;
+  }
+  const affected=(bookings||[]).filter(b=>localDateInputValue(new Date(b.start_time))===date&&!bookingFitsAvailabilityWindow(b,windows||[]));
+  for(const booking of affected){
+    const {error}=await sb.from('pg_bookings').update({status:'cancelled'}).eq('id',booking.id).eq('coach_id',currentUser.id);
+    if(error){console.warn('Could not cancel affected booking:',error.message);continue;}
+    if(booking.client_id){
+      await sendPush(
+        booking.client_id,
+        'cancellations',
+        'Session cancelled',
+        'Your '+(booking.pg_session_types?.name||'session')+' on '+formatBookingTime(booking.start_time,booking.end_time)+' was cancelled because your coach changed their availability.',
+        appRouteUrl('calendar')
+      );
+    }
+  }
+  return affected.length;
+}
+
 async function loadCalendar(){
+  await archivePastBookings();
   const coachArea=document.getElementById('coachCalendarArea'), clientArea=document.getElementById('clientCalendarArea');
   if(isCoach()){
     coachArea.classList.remove('hidden');clientArea.classList.add('hidden');
@@ -1007,8 +1077,38 @@ async function deleteSessionType(id){if(!confirm('Delete this session type?'))re
 function renderSessionTypes(){const box=document.getElementById('sessionTypeList');box.innerHTML=sessionTypes.map(x=>'<div class="item"><h3>'+esc(x.name)+'</h3><p>'+esc(String(x.duration_minutes))+' minutes'+(x.price!=null?' · $'+Number(x.price).toFixed(2):'')+'</p>'+(x.description?'<p>'+esc(x.description)+'</p>':'')+'<div class="row" style="margin-top:8px"><button class="outline" onclick="editSessionType(\''+x.id+'\')">EDIT</button><button class="outline" onclick="toggleSessionType(\''+x.id+'\','+(!x.active)+')">'+(x.active?'DEACTIVATE':'ACTIVATE')+'</button><button class="outline" onclick="deleteSessionType(\''+x.id+'\')">DELETE</button></div></div>').join('')||'<div class="empty">No session types yet.</div>'}
 function openAvailabilityModal(){document.getElementById('availabilityModalTitle').textContent='Add Coach Availability';document.getElementById('availabilityId').value='';const d=document.getElementById('availabilityDate');d.value=localDateInputValue();d.min=localDateInputValue();document.getElementById('availabilityStart').value='09:00';document.getElementById('availabilityEnd').value='17:00';openModal('availabilityModal')}
 function editAvailability(id){const x=availability.find(v=>v.id===id);if(!x)return;document.getElementById('availabilityModalTitle').textContent='Edit Coach Availability';document.getElementById('availabilityId').value=x.id;document.getElementById('availabilityDate').value=x.availability_date||localDateInputValue();document.getElementById('availabilityDate').min=localDateInputValue();document.getElementById('availabilityStart').value=String(x.start_time).slice(0,5);document.getElementById('availabilityEnd').value=String(x.end_time).slice(0,5);openModal('availabilityModal')}
-async function saveAvailability(){const id=document.getElementById('availabilityId').value,date=document.getElementById('availabilityDate').value,start=document.getElementById('availabilityStart').value,end=document.getElementById('availabilityEnd').value;if(!date)return toast('Choose a calendar date.');if(!start||!end||end<=start)return toast('End time must be after start time.');const day=new Date(date+'T12:00:00').getDay();const payload={availability_date:date,day_of_week:day,start_time:start,end_time:end,active:true};let error;if(id){({error}=await sb.from('pg_availability').update(payload).eq('id',id).eq('coach_id',currentUser.id));}else{({error}=await sb.from('pg_availability').insert({coach_id:currentUser.id,...payload}));}if(error)return toast('Could not save availability: '+error.message);closeModal('availabilityModal');toast(id?'Availability updated.':'Availability added.');loadCalendar()}
-async function deleteAvailability(id){if(!confirm('Remove this availability window?'))return;const {error}=await sb.from('pg_availability').delete().eq('id',id).eq('coach_id',currentUser.id);if(error)return toast(error.message);toast('Availability removed.');loadCalendar()}
+async function saveAvailability(){
+  const id=document.getElementById('availabilityId').value,date=document.getElementById('availabilityDate').value,start=document.getElementById('availabilityStart').value,end=document.getElementById('availabilityEnd').value;
+  if(!date)return toast('Choose a calendar date.');
+  if(date<localDateInputValue())return toast('Availability cannot be set for a past date.');
+  if(!start||!end||end<=start)return toast('End time must be after start time.');
+  const old=id?availability.find(v=>v.id===id):null;
+  const oldDate=old?.availability_date?String(old.availability_date).slice(0,10):null;
+  const day=new Date(date+'T12:00:00').getDay();
+  const payload={availability_date:date,day_of_week:day,start_time:start,end_time:end,active:true};
+  let error;
+  if(id){({error}=await sb.from('pg_availability').update(payload).eq('id',id).eq('coach_id',currentUser.id));}
+  else{({error}=await sb.from('pg_availability').insert({coach_id:currentUser.id,...payload}));}
+  if(error)return toast('Could not save availability: '+error.message);
+  let cancelled=0;
+  if(id){
+    if(oldDate)cancelled+=await cancelBookingsNoLongerAvailable(oldDate);
+    if(date!==oldDate)cancelled+=await cancelBookingsNoLongerAvailable(date);
+  }
+  closeModal('availabilityModal');
+  toast(id?(cancelled?`Availability updated. ${cancelled} affected appointment${cancelled===1?' was':'s were'} cancelled and the client${cancelled===1?' was':'s were'} notified.`:'Availability updated.'):'Availability added.');
+  loadCalendar();
+}
+async function deleteAvailability(id){
+  if(!confirm('Remove this availability window? Any appointment that no longer fits your remaining availability will be cancelled and the client will be notified.'))return;
+  const old=availability.find(v=>v.id===id);
+  const date=old?.availability_date?String(old.availability_date).slice(0,10):null;
+  const {error}=await sb.from('pg_availability').delete().eq('id',id).eq('coach_id',currentUser.id);
+  if(error)return toast(error.message);
+  const cancelled=date?await cancelBookingsNoLongerAvailable(date):0;
+  toast(cancelled?`Availability removed. ${cancelled} affected appointment${cancelled===1?' was':'s were'} cancelled and the client${cancelled===1?' was':'s were'} notified.`:'Availability removed.');
+  loadCalendar();
+}
 function renderAvailability(){const box=document.getElementById('availabilityList');const sorted=[...availability].sort((a,b)=>String(a.availability_date||'9999-12-31').localeCompare(String(b.availability_date||'9999-12-31'))||String(a.start_time).localeCompare(String(b.start_time)));box.innerHTML=sorted.map(x=>{const label=x.availability_date?new Date(x.availability_date+'T12:00:00').toLocaleDateString([], {weekday:'long',month:'short',day:'numeric',year:'numeric'}):dayName(x.day_of_week)+' (weekly)';return '<div class=\"item\"><h3>'+esc(label)+'</h3><p>'+String(x.start_time).slice(0,5)+' – '+String(x.end_time).slice(0,5)+'</p><button class=\"outline\" style=\"margin-top:8px\" onclick=\"deleteAvailability(\''+x.id+'\')\">REMOVE</button></div>'}).join('')||'<div class=\"empty\">No calendar availability set yet.</div>'}
 function formatBookingTime(start,end){const a=new Date(start),b=new Date(end);return a.toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' – '+b.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}
 let coachBookingView='day';
@@ -1059,7 +1159,7 @@ async function updateBookingStatus(id,status){
 }
 async function deleteArchivedBooking(id){if(!confirm('Delete this archived session permanently?'))return;const {error}=await sb.from('pg_bookings').delete().eq('id',id);if(error)return toast('Could not delete archived session: '+error.message);toast('Archived session deleted.');await loadCalendar()}
 function renderClientSessionTypes(){const sel=document.getElementById('bookingSessionType');const old=sel.value;sel.innerHTML='<option value="">Select session type...</option>'+sessionTypes.map(x=>'<option value="'+x.id+'">'+esc(x.name)+' · '+x.duration_minutes+' min'+(x.price!=null?' · $'+Number(x.price).toFixed(2):'')+'</option>').join('');if(sessionTypes.some(x=>x.id===old))sel.value=old;else if(sessionTypes.length)sel.value=sessionTypes[0].id}
-function renderClientAvailability(){const box=document.getElementById('clientAvailabilityList');if(!box)return;const groups={};availability.forEach(x=>{if(!x.availability_date)return;(groups[x.availability_date]??=[]).push(x)});const dates=Object.keys(groups).sort();if(!dates.length){box.innerHTML='<div class="empty">Your coach has not posted any upcoming availability yet.</div>';return}box.innerHTML=dates.map(date=>{const label=new Date(date+'T12:00:00').toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'});const windows=groups[date].map(w=>'<span class="availability-chip">'+String(w.start_time).slice(0,5)+' – '+String(w.end_time).slice(0,5)+'</span>').join(' ');return '<div class="item"><div class="section"><div><h3>'+esc(label)+'</h3><p>'+windows+'</p></div><button class="primary" onclick="selectBookingDate(\''+date+'\')">VIEW TIMES</button></div></div>'}).join('')}
+function renderClientAvailability(){const box=document.getElementById('clientAvailabilityList');if(!box)return;const groups={};const today=localDateInputValue();availability.forEach(x=>{if(!x.availability_date||String(x.availability_date).slice(0,10)<today)return;(groups[x.availability_date]??=[]).push(x)});const dates=Object.keys(groups).sort();if(!dates.length){box.innerHTML='<div class="empty">Your coach has not posted any upcoming availability yet.</div>';return}box.innerHTML=dates.map(date=>{const label=new Date(date+'T12:00:00').toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'});const windows=groups[date].map(w=>'<span class="availability-chip">'+String(w.start_time).slice(0,5)+' – '+String(w.end_time).slice(0,5)+'</span>').join(' ');return '<div class="item"><div class="section"><div><h3>'+esc(label)+'</h3><p>'+windows+'</p></div><button class="primary" onclick="selectBookingDate(\''+date+'\')">VIEW TIMES</button></div></div>'}).join('')}
 function selectBookingDate(date){const input=document.getElementById('bookingDate');input.value=date;document.getElementById('bookingSessionType')?.focus();renderClientSlots();document.getElementById('clientSlots')?.scrollIntoView({behavior:'smooth',block:'center'})}
 function timeToMinutes(t){const parts=String(t).slice(0,5).split(':').map(Number);return parts[0]*60+parts[1]}
 function dateTimeFor(date,time){return new Date(date+'T'+String(time).slice(0,5)+':00')}

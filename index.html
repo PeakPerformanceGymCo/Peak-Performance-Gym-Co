@@ -129,7 +129,12 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <label class="item" style="display:flex;justify-content:space-between;align-items:center"><span>Cancellations</span><input id="prefCancellations" type="checkbox" checked onchange="saveNotificationPreferences()"></label>
 <label class="item" style="display:flex;justify-content:space-between;align-items:center"><span>Session reminders</span><input id="prefSessionReminders" type="checkbox" checked onchange="saveNotificationPreferences()"></label>
 <label class="item" style="display:flex;justify-content:space-between;align-items:center"><span>Workout reminders</span><input id="prefWorkoutReminders" type="checkbox" checked onchange="saveNotificationPreferences()"></label>
-</div></div></div></section>
+</div></div>
+<div class="card"><h3>App Updates</h3>
+<p class="muted">Current version: <strong id="appVersionLabel">V43</strong></p>
+<p id="updateStatus" class="muted">Updates are checked automatically when the app opens.</p>
+<button class="outline full" onclick="checkForAppUpdate(true)">CHECK FOR UPDATES</button>
+</div></div></section>
 </main></div>
 <div id="clientModal" class="modal"><div class="modalbox"><h2>New Client</h2><input id="clientName" class="field" placeholder="Client name"><input id="clientEmail" class="field" type="email" placeholder="Client email"><select id="clientProgram" class="field"><option>Velocity Development</option><option>General Strength</option><option>Golf Performance</option></select><button class="primary full" onclick="createClient()">SEND CLIENT INVITE</button><button class="outline full" onclick="closeModal('clientModal')">CANCEL</button><p class="small">The client receives a secure Supabase invitation email and is directed to the Peak Performance Gym Co. app.</p></div></div>
 <div id="editClientModal" class="modal"><div class="modalbox"><h2>Edit Client</h2><input id="editClientId" type="hidden"><input id="editClientName" class="field" placeholder="Client name"><button class="primary full" onclick="saveClientEdit()">SAVE CHANGES</button><button class="outline full" onclick="closeModal('editClientModal')">CANCEL</button></div></div>
@@ -144,18 +149,46 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <div id="bookingConfirmModal" class="modal"><div class="modalbox"><h2>Confirm Booking</h2><div id="bookingConfirmText" class="item"></div><textarea id="bookingClientNotes" class="field" rows="3" placeholder="Note for your coach (optional)"></textarea><input id="bookingConfirmType" type="hidden"><input id="bookingConfirmStart" type="hidden"><input id="bookingConfirmEnd" type="hidden"><button class="primary full" onclick="confirmBooking()">CONFIRM BOOKING</button><button class="outline full" onclick="closeModal('bookingConfirmModal')">CANCEL</button></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const APP_URL='https://peakperformancegymco.github.io/Peak-Performance-Gym-Co/';const SUPABASE_URL='https://qrevmjdxgeprhuervbar.supabase.co';const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZXZtamR4Z2Vwcmh1ZXJ2YmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzU1NjMsImV4cCI6MjEwNTA1MTU2M30.pQzO4VDk0rCFP5TEcCtQzlbY5PeR_95O_0j17IEKGLo';let sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY),currentUser=null,profile=null,clients=[],workouts=[],exercises=[];
+const APP_URL='https://peakperformancegymco.github.io/Peak-Performance-Gym-Co/';const APP_VERSION='43';const SUPABASE_URL='https://qrevmjdxgeprhuervbar.supabase.co';const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZXZtamR4Z2Vwcmh1ZXJ2YmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzU1NjMsImV4cCI6MjEwNTA1MTU2M30.pQzO4VDk0rCFP5TEcCtQzlbY5PeR_95O_0j17IEKGLo';let sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY),currentUser=null,profile=null,clients=[],workouts=[],exercises=[];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(x){const t=document.getElementById('toast');t.textContent=x;t.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>t.style.display='none',3500)}
 function openModal(id){document.getElementById(id).classList.add('open');if(id==='assignModal')populateAssignModal()}
 function closeModal(id){document.getElementById(id).classList.remove('open')}
 function isCoach(){return ['coach','admin'].includes(profile?.role)}
 function navForRole(){document.getElementById('coachNav').classList.toggle('hidden',!isCoach());document.getElementById('clientNav').classList.toggle('hidden',isCoach());document.getElementById('coachStats').classList.toggle('hidden',!isCoach());document.getElementById('coachHomeCards').classList.toggle('hidden',!isCoach());document.getElementById('clientHomeCards').classList.toggle('hidden',isCoach());document.getElementById('coachTrainingArea').classList.toggle('hidden',!isCoach());document.getElementById('clientTrainingArea').classList.toggle('hidden',isCoach());document.getElementById('coachTrainingActions').classList.toggle('hidden',!isCoach());document.getElementById('addExerciseBtn').classList.toggle('hidden',!isCoach());document.getElementById('addMetricBtn').classList.toggle('hidden',!isCoach());document.getElementById('metricUser').classList.toggle('hidden',false);document.getElementById('settings').classList.remove('hidden');document.getElementById('profile').classList.toggle('hidden',isCoach());document.getElementById('trainingHeading').textContent=isCoach()?'Training':'My Training';document.getElementById('trainingIntro').textContent=isCoach()?'Create workouts and assign them to clients.':'View workouts assigned by your coach.';document.getElementById('progressHeading').textContent=isCoach()?'Progress':'My Progress';document.getElementById('roleBadge').textContent=isCoach()?'COACH WORKSPACE':'CLIENT WORKSPACE';document.getElementById('homeIntro').textContent=isCoach()?'Build training, assign programs and communicate with clients.':'Your assigned training, exercise resources and direct coach messaging in one place.'}
-function show(id){if(document.getElementById(id)?.classList.contains('hidden'))return;document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');const nav=isCoach()?document.getElementById('coachNav'):document.getElementById('clientNav');nav.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const b=[...nav.querySelectorAll('.tab')].find(x=>x.getAttribute('onclick')?.includes("show('"+id+"')"));if(b)b.classList.add('active');if(id==='clients')loadClients();if(id==='training')isCoach()?loadCoachTraining():loadClientTraining();if(id==='exercises')loadExercises();if(id==='progress')loadMetrics();if(id==='messages')loadMessages();if(id==='calendar')loadCalendar();if(id==='profile')loadProfile();if(id==='settings')refreshPushStatus();window.scrollTo({top:0,behavior:'smooth'})}
+function show(id){if(document.getElementById(id)?.classList.contains('hidden'))return;document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById(id).classList.add('active');const nav=isCoach()?document.getElementById('coachNav'):document.getElementById('clientNav');nav.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const b=[...nav.querySelectorAll('.tab')].find(x=>x.getAttribute('onclick')?.includes("show('"+id+"')"));if(b)b.classList.add('active');if(id==='clients')loadClients();if(id==='training')isCoach()?loadCoachTraining():loadClientTraining();if(id==='exercises')loadExercises();if(id==='progress')loadMetrics();if(id==='messages')loadMessages();if(id==='calendar')loadCalendar();if(id==='profile')loadProfile();if(id==='settings'){const v=document.getElementById('appVersionLabel');if(v)v.textContent='V'+APP_VERSION;refreshPushStatus();checkForAppUpdate(false);}window.scrollTo({top:0,behavior:'smooth'})}
 async function signIn(){const email=document.getElementById('email').value,password=document.getElementById('password').value;const r=await sb.auth.signInWithPassword({email,password});if(r.error)toast(r.error.message)}
 async function signUp(){const email=document.getElementById('email').value,password=document.getElementById('password').value;if(password.length<6)return toast('Password must be at least 6 characters.');const r=await sb.auth.signUp({email,password});if(r.error)toast(r.error.message);else toast('Account created. Check your email if verification is enabled.')}
 async function signOut(){await sb.auth.signOut();location.reload()}
 
+
+let updateReloadPending=false;
+async function activateWaitingServiceWorker(reg){
+  if(reg?.waiting){updateReloadPending=true;reg.waiting.postMessage({type:'SKIP_WAITING'});return true}
+  return false
+}
+async function checkForAppUpdate(showMessage=false){
+  const status=document.getElementById('updateStatus');
+  try{
+    if(!('serviceWorker' in navigator)){if(status)status.textContent='Automatic updates are not supported here.';return}
+    const reg=await navigator.serviceWorker.getRegistration();
+    if(!reg){if(status)status.textContent='Update service is starting.';return}
+    if(status)status.textContent='Checking for updates…';
+    await reg.update();
+    if(await activateWaitingServiceWorker(reg)){if(status)status.textContent='Update found. Installing now…';return}
+    if(reg.installing){
+      if(status)status.textContent='Update found. Installing now…';
+      reg.installing.addEventListener('statechange',()=>{if(reg.waiting)activateWaitingServiceWorker(reg)});
+      return
+    }
+    if(status)status.textContent='You are running the latest version (V'+APP_VERSION+').';
+    if(showMessage)toast('You are running the latest version.')
+  }catch(e){console.warn(e);if(status)status.textContent='Could not check for updates. Try again when online.';if(showMessage)toast('Could not check for updates.')}
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(updateReloadPending){updateReloadPending=false;location.reload()}});
+  window.addEventListener('load',()=>setTimeout(()=>checkForAppUpdate(false),1200));
+}
 const VAPID_PUBLIC_KEY='BAXHJMi-In5s5_f8A-Uj9FurTvU069vD-d-88E1uqNvWqfUkySqXX0tVAZJiUuZh9AHxlPj2eZCVyIln3e6ZXdA';
 
 function urlBase64ToUint8Array(base64String){

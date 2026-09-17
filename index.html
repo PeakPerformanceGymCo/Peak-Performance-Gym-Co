@@ -14,7 +14,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <button class="tab" onclick="show('training')">Training</button>
 <button class="tab" onclick="show('exercises')">Exercise Library</button>
 <button class="tab" onclick="show('progress')">Progress</button>
-<button class="tab" onclick="show('messages')">Messages</button>
+<button class="tab message-tab" onclick="show('messages')">Messages <span id="messageUnreadDot" class="unread-dot hidden"></span></button>
 <button class="tab" onclick="show('calendar')">Calendar</button>
 <button class="tab" onclick="show('settings')">Settings</button>
 </nav>
@@ -23,14 +23,14 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <button class="tab" onclick="show('training')">My Training</button>
 <button class="tab" onclick="show('exercises')">Exercise Library</button>
 <button class="tab" onclick="show('progress')">My Progress</button>
-<button class="tab" onclick="show('messages')">Messages</button>
+<button class="tab message-tab" onclick="show('messages')">Messages <span id="messageUnreadDot" class="unread-dot hidden"></span></button>
 <button class="tab" onclick="show('calendar')">Calendar</button>
 <button class="tab" onclick="show('profile')">Profile</button>
 </nav>
 
 <section id="home" class="view active">
  <div class="card hero"><span class="badge" id="roleBadge">PERFORMANCE GYM CO.</span><h1 id="welcome">Welcome</h1><p id="homeIntro">Your coaching hub for strength & conditioning.</p></div>
- <div class="grid4" id="coachStats"><div class="card"><div class="kpi">Active clients</div><div id="statClients" class="stat">0</div></div><div class="card"><div class="kpi">Workouts</div><div id="statWorkouts" class="stat">0</div></div><div class="card"><div class="kpi">Exercise videos</div><div id="statExercises" class="stat">0</div></div><div class="card"><div class="kpi">Messages</div><div id="statMessages" class="stat">0</div></div></div>
+ <div class="grid3" id="coachStats"><div class="card"><div class="kpi">Active clients</div><div id="statClients" class="stat">0</div></div><div class="card"><div class="kpi">Messages</div><div id="statMessages" class="stat">0</div></div></div>
  <div class="grid" id="coachHomeCards"><div class="card"><div class="section"><h2>Coach workspace</h2></div><p class="muted">Build workouts, assign them to clients, keep exercise resources in one place, and message clients directly.</p><div class="row"><button class="primary" onclick="show('training')">BUILD / ASSIGN WORKOUT</button><button class="outline" onclick="show('messages')">OPEN MESSAGES</button></div></div><div class="card"><div class="section"><h2>Next phase</h2></div><p class="muted">Golf, deeper progress tracking, payments and video uploads can be added after the core training workflow is solid.</p></div></div>
  <div class="grid hidden" id="clientHomeCards"><div class="card"><div class="section"><h2>Today's training</h2></div><div id="clientToday" class="empty">No workout assigned yet.</div></div><div class="card"><div class="section"><h2>Coach messages</h2></div><div id="clientMessagePreview" class="empty">No messages yet.</div><button class="outline" onclick="show('messages')" style="margin-top:10px">OPEN MESSAGES</button></div><div class="card"><div class="section"><h2>Quick links</h2></div><p class="muted">Quick access to your training and coaching calendar.</p><div class="row"><button class="primary" onclick="show('training')">MY TRAINING</button><button class="outline" onclick="show('calendar')">CALENDAR</button></div></div></div>
 </section>
@@ -120,7 +120,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 
 <section id="settings" class="view"><div class="section"><h2>Settings</h2></div><div class="grid"><div class="card"><h3>Mobile</h3><p class="muted">This site is mobile-first and PWA-ready.</p></div><div class="card"><h3>Account</h3><p id="profileInfo" class="muted"></p></div><div class="card"><h3>Future upgrades</h3><p class="muted">Golf, payments, deeper analytics, notifications and optional hosted video can be added later.</p></div></div></section>
 </main></div>
-<div id="clientModal" class="modal"><div class="modalbox"><h2>New Client</h2><input id="clientName" class="field" placeholder="Client name"><input id="clientEmail" class="field" type="email" placeholder="Client email"><select id="clientProgram" class="field"><option>Velocity Development</option><option>General Strength</option><option>Golf Performance</option></select><button class="primary full" onclick="createClient()">SEND CLIENT INVITE</button><button class="outline full" onclick="closeModal('clientModal')">CANCEL</button><p class="small">The client receives a secure Supabase invitation email.</p></div></div>
+<div id="clientModal" class="modal"><div class="modalbox"><h2>New Client</h2><input id="clientName" class="field" placeholder="Client name"><input id="clientEmail" class="field" type="email" placeholder="Client email"><select id="clientProgram" class="field"><option>Velocity Development</option><option>General Strength</option><option>Golf Performance</option></select><button class="primary full" onclick="createClient()">SEND CLIENT INVITE</button><button class="outline full" onclick="closeModal('clientModal')">CANCEL</button><p class="small">The client receives a secure Supabase invitation email and is directed to the Peak Performance Gym Co. app.</p></div></div>
 <div id="editClientModal" class="modal"><div class="modalbox"><h2>Edit Client</h2><input id="editClientId" type="hidden"><input id="editClientName" class="field" placeholder="Client name"><button class="primary full" onclick="saveClientEdit()">SAVE CHANGES</button><button class="outline full" onclick="closeModal('editClientModal')">CANCEL</button></div></div>
 <div id="assignModal" class="modal"><div class="modalbox"><h2>Assign Workout</h2><p class="muted">Choose a client, give the workout a name, and optionally attach your spreadsheet.</p><label class="small">CLIENT</label><select id="assignClient" class="field"><option value="">Select a client...</option></select><input id="assignWorkoutName" class="field" placeholder="Workout name — e.g. Lower Body Power"><div id="assignDates"></div><button type="button" class="outline full" onclick="addScheduleDateRow()">+ ADD ANOTHER DATE</button><textarea id="assignDescription" class="field" rows="2" placeholder="Short description (optional)"></textarea><textarea id="assignNotes" class="field" rows="3" placeholder="Coaching notes for this client (optional)"></textarea><input id="assignSheet" class="field" type="url" placeholder="Spreadsheet link (optional)"><button class="primary full" onclick="assignWorkout()">ASSIGN TO CLIENT</button><button class="outline full" onclick="closeModal('assignModal')">CANCEL</button></div></div>
 <div id="editWorkoutModal" class="modal"><div class="modalbox"><h2>Edit Workout</h2><input id="editWorkoutId" type="hidden"><label class="small">CLIENT</label><select id="editWorkoutClient" class="field"></select><input id="editWorkoutName" class="field" placeholder="Workout name"><div id="editWorkoutDates"></div><button type="button" class="outline full" onclick="addEditScheduleDateRow()">+ ADD ANOTHER DATE</button><textarea id="editWorkoutDescription" class="field" rows="2" placeholder="Description"></textarea><textarea id="editWorkoutNotes" class="field" rows="3" placeholder="Coach notes"></textarea><input id="editWorkoutSheet" class="field" type="url" placeholder="Spreadsheet link"><button class="primary full" onclick="saveWorkoutEdit()">SAVE CHANGES</button><button class="outline full" onclick="closeModal('editWorkoutModal')">CANCEL</button></div></div>
@@ -133,7 +133,7 @@ main{padding:20px}.tabs{display:flex;gap:8px;overflow:auto;margin-bottom:20px;sc
 <div id="bookingConfirmModal" class="modal"><div class="modalbox"><h2>Confirm Booking</h2><div id="bookingConfirmText" class="item"></div><textarea id="bookingClientNotes" class="field" rows="3" placeholder="Note for your coach (optional)"></textarea><input id="bookingConfirmType" type="hidden"><input id="bookingConfirmStart" type="hidden"><input id="bookingConfirmEnd" type="hidden"><button class="primary full" onclick="confirmBooking()">CONFIRM BOOKING</button><button class="outline full" onclick="closeModal('bookingConfirmModal')">CANCEL</button></div></div>
 <div id="toast" class="toast"></div>
 <script>
-const SUPABASE_URL='https://qrevmjdxgeprhuervbar.supabase.co';const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZXZtamR4Z2Vwcmh1ZXJ2YmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzU1NjMsImV4cCI6MjEwNTA1MTU2M30.pQzO4VDk0rCFP5TEcCtQzlbY5PeR_95O_0j17IEKGLo';let sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY),currentUser=null,profile=null,clients=[],workouts=[],exercises=[];
+const APP_URL='https://peakperformancegymco.github.io/Peak-Performance-Gym-Co/';const SUPABASE_URL='https://qrevmjdxgeprhuervbar.supabase.co';const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyZXZtamR4Z2Vwcmh1ZXJ2YmFyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk0NzU1NjMsImV4cCI6MjEwNTA1MTU2M30.pQzO4VDk0rCFP5TEcCtQzlbY5PeR_95O_0j17IEKGLo';let sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY),currentUser=null,profile=null,clients=[],workouts=[],exercises=[];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(x){const t=document.getElementById('toast');t.textContent=x;t.style.display='block';clearTimeout(window.tt);window.tt=setTimeout(()=>t.style.display='none',3500)}
 function openModal(id){document.getElementById(id).classList.add('open');if(id==='assignModal')populateAssignModal()}
@@ -145,7 +145,7 @@ async function signIn(){const email=document.getElementById('email').value,passw
 async function signUp(){const email=document.getElementById('email').value,password=document.getElementById('password').value;if(password.length<6)return toast('Password must be at least 6 characters.');const r=await sb.auth.signUp({email,password});if(r.error)toast(r.error.message);else toast('Account created. Check your email if verification is enabled.')}
 async function signOut(){await sb.auth.signOut();location.reload()}
 async function loadUser(user){currentUser=user;let r=await sb.from('profiles').select('*').eq('id',user.id).maybeSingle();if(!r.data&&user.email)r=await sb.from('profiles').select('*').eq('email',user.email).maybeSingle();if(!r.data)return toast('Profile lookup failed: '+(r.error?.message||'profile not found'));profile=r.data;document.getElementById('auth').classList.add('hidden');document.getElementById('app').classList.remove('hidden');document.getElementById('who').textContent=profile.full_name||user.email;document.getElementById('welcome').textContent=isCoach()?'Welcome, '+(profile.full_name||'Coach'):'Welcome, '+(profile.full_name||'Athlete');document.getElementById('profileInfo').textContent=(profile.full_name||'')+' · '+(profile.email||user.email)+' · '+profile.role;document.getElementById('clientProfileInfo').innerHTML='<div class="kpi">Name</div><h2>'+esc(profile.full_name||'')+'</h2><div class="kpi">Email</div><p class="muted">'+esc(profile.email||user.email)+'</p><div class="kpi">Role</div><p class="muted">Client</p>';navForRole();await loadDashboard()}
-async function loadDashboard(){if(isCoach()){const [w,c,e,m]=await Promise.all([sb.from('pg_workout_assignments').select('id',{count:'exact',head:true}).eq('coach_id',currentUser.id),sb.rpc('get_coach_client_count'),sb.from('pg_exercises').select('id',{count:'exact',head:true}).eq('coach_id',currentUser.id),sb.from('pg_messages').select('id',{count:'exact',head:true}).eq('sender_id',currentUser.id)]);document.getElementById('statWorkouts').textContent=w.count||0;document.getElementById('statClients').textContent=c.data||0;document.getElementById('statExercises').textContent=e.count||0;document.getElementById('statMessages').textContent=m.count||0;await Promise.all([loadClients(),loadCoachTraining(),loadExercises(),loadMessages()])}else{await Promise.all([loadClientTraining(),loadExercises(),loadMessages(),loadMetrics()]);}}
+async function loadDashboard(){if(isCoach()){const [c,m]=await Promise.all([sb.rpc('get_coach_client_count'),getUnreadMessageCount()]);document.getElementById('statClients').textContent=c.data||0;document.getElementById('statMessages').textContent=m||0;updateUnreadDot(m||0);await Promise.all([loadClients(),loadCoachTraining(),loadExercises(),loadMessages()])}else{const m=await getUnreadMessageCount();updateUnreadDot(m||0);await Promise.all([loadClientTraining(),loadExercises(),loadMessages(),loadMetrics()]);}}
 async function loadClients(){if(!isCoach())return;const {data,error}=await sb.rpc('get_coach_clients');if(error)return document.getElementById('clientList').innerHTML='<div class="empty">'+esc(error.message)+'</div>';clients=data||[];document.getElementById('clientList').innerHTML=clients.map(c=>'<div class="item"><div class="row"><div><h3>'+esc(c.full_name||'Unnamed client')+'</h3><p>'+esc(c.email||'')+'</p></div><span class="pill">CLIENT</span><button class="outline" onclick="startClientMessage(\''+c.id+'\')">Message</button><button class="outline" onclick="openEditClient(\''+c.id+'\')">Edit</button><button class="outline" onclick="archiveClient(\''+c.id+'\')">Archive</button></div></div>').join('')||'<div class="empty">No active clients yet.</div>';}
 async function createClient(){const name=document.getElementById('clientName').value.trim(),email=document.getElementById('clientEmail').value.trim(),program=document.getElementById('clientProgram').value;if(!name||!email)return toast('Enter a name and email.');const button=document.querySelector('#clientModal .primary');const original=button.textContent;button.disabled=true;button.textContent='SENDING...';const {data,error}=await sb.functions.invoke('invite-client',{body:{name,email,program}});button.disabled=false;button.textContent=original;if(error)return toast(error.message||'Could not send invite.');if(data?.error)return toast(data.error);toast('Invitation sent to '+email);document.getElementById('clientName').value='';document.getElementById('clientEmail').value='';closeModal('clientModal');loadClients()}
 async function loadCoachTraining(){
@@ -293,6 +293,21 @@ async function createMetric(){
   const {error}=await sb.from('pg_metrics').insert({user_id,name,value,unit,category}); if(error)return toast(error.message); toast('Progress result saved.'); closeModal('metricModal'); document.getElementById('metricName').value='';document.getElementById('metricValue').value='';document.getElementById('metricUnit').value=''; loadMetrics();
 }
 let activeConversationId=null;
+async function getUnreadMessageCount(){
+  const {data,error}=await sb.rpc('get_unread_message_count');
+  return error?0:Number(data||0);
+}
+function updateUnreadDot(count){
+  const dot=document.getElementById('messageUnreadDot');
+  if(dot)dot.classList.toggle('hidden',Number(count||0)<=0);
+  const stat=document.getElementById('statMessages');
+  if(stat&&isCoach())stat.textContent=Number(count||0);
+}
+async function markConversationRead(otherId){
+  if(!otherId)return;
+  await sb.rpc('mark_conversation_read',{p_other_user_id:otherId});
+  const count=await getUnreadMessageCount();updateUnreadDot(count);
+}
 async function loadMessages(){
   const box=document.getElementById('conversationList');
   const msgBox=document.getElementById('messageList');
@@ -323,7 +338,9 @@ async function loadMessages(){
   if(activeConversationId && people[activeConversationId]) renderConversation(activeConversationId,messages,people[activeConversationId]);
   else if(!activeConversationId && convs[0]) openConversation(convs[0].id);
   if(!isCoach()){const latest=messages[messages.length-1];document.getElementById('clientMessagePreview').innerHTML=latest?'<b>'+esc(latest.body)+'</b><p class="small">'+new Date(latest.created_at).toLocaleString()+'</p>':'No messages yet.';}
+  const unread=await getUnreadMessageCount();updateUnreadDot(unread);
 }
+
 function renderConversation(id,messages,person){
   activeConversationId=id;
   document.getElementById('conversationTitle').textContent=person.name;
@@ -338,6 +355,7 @@ function renderConversation(id,messages,person){
 }
 async function openConversation(id){
   activeConversationId=id;
+  await markConversationRead(id);
   await loadMessages();
   document.getElementById('dmMessageBody')?.focus();
 }
@@ -349,6 +367,7 @@ async function sendMessage(){
   const r=await sb.from('pg_messages').insert({sender_id:currentUser.id,recipient_id:recipient,body});
   if(r.error)return toast(r.error.message);
   document.getElementById('dmMessageBody').value='';
+  await sb.functions.invoke('notify-message',{body:{sender_id:currentUser.id,recipient_id:recipient,body}}).catch(()=>{});
   await loadMessages();
   toast('Message sent.');
 }
@@ -371,7 +390,7 @@ sb.auth.getSession().then(r=>{if(r.data.session){loadUser(r.data.session.user);s
 </script><style>
 .v11-setup-note{color:#aaa;font-size:13px;line-height:1.5;margin:8px 0 14px}
 .v11-setup-title{margin:8px 0 4px}
-</style>
+<style>.grid3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.unread-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#e33;margin-left:5px;vertical-align:middle}.unread-dot.hidden{display:none}@media(max-width:700px){.grid3{grid-template-columns:1fr}}</style>
 <script>
 (function(){
   const originalLoadUser=window.loadUser;
@@ -762,7 +781,7 @@ let coachBookingDate=localDateInputValue();
 function bookingDateLabel(date){return new Date(date+'T12:00:00').toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:'numeric'})}
 function bookingDayKey(d){return localDateInputValue(d)}
 function shiftDate(date,days){const d=new Date(date+'T12:00:00');d.setDate(d.getDate()+days);return bookingDayKey(d)}
-function changeCoachBookingDay(days){coachBookingDate=shiftDate(coachBookingDate,days);coachBookingView='day';renderCoachBookingViews()}
+function changeCoachBookingDay(days){const step=coachBookingView==='week'?days*7:days;coachBookingDate=shiftDate(coachBookingDate,step);renderCoachBookingViews()}
 function setCoachBookingToday(){coachBookingDate=localDateInputValue();coachBookingView='day';renderCoachBookingViews()}
 function setCoachBookingView(view){coachBookingView=view;renderCoachBookingViews()}
 function coachBookingClientName(b,names){const p=names[b.client_id]||{};return p.full_name||p.email||'Client'}
@@ -851,6 +870,7 @@ async function confirmBooking(){
   if(error)return toast('Booking could not be saved: '+error.message);
   if(data?.ok===false)return toast(data.message||'That time is no longer available.');
   closeModal('bookingConfirmModal');
+  await sb.functions.invoke('notify-booking',{body:{coach_id:clientCoachId,client_id:currentUser.id,session_type_id:typeId,start_time:start,end_time:end,client_notes:notes}}).catch(()=>{});
   toast('Booking confirmed!');
   await loadCalendar();
 }

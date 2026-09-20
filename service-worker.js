@@ -1,4 +1,4 @@
-const CACHE='peak-performance-v53';
+const CACHE='peak-performance-v54';
 const STATIC_ASSETS=['./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',event=>{
